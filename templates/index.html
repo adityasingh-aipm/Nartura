@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Nurtura - Your Parenting Copilot{% endblock %}
+
+{% block content %}
+<div class="gradient-bg">
+    <div class="container">
+        <div class="card-static text-center fade-in">
+            <h1 class="mb-2">Nurtura</h1>
+            <h2 class="mb-2" style="font-weight: 400; font-size: 20px;">Your parenting copilot for ages 0-6</h2>
+            <p class="microcopy mb-4">Science + Care. Every milestone matters. 💕</p>
+            
+            <div class="btn-group">
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
+                <a href="{{ url_for('signup') }}" class="btn btn-pink">Sign Up</a>
+            </div>
+            
+            <p class="microcopy mt-4">Your child's data is always private and safe 🔒</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

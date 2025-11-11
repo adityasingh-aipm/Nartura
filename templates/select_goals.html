@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block title %}Select Goals - Nurtura{% endblock %}
+
+{% block content %}
+<div class="gradient-bg" style="background: linear-gradient(180deg, #ffffff 0%, #fce7f3 50%, #dbeafe 100%); min-height: 100vh; display: flex; align-items: center; padding: 24px;">
+    <div class="container" style="max-width: 600px; margin: 0 auto;">
+        <div class="goals-card fade-in">
+            <!-- Header -->
+            <div class="goals-header">
+                <h1 class="goals-title">What areas of growth matter most to you?</h1>
+                <p class="goals-subtitle">Select at least 1 (you can choose multiple)</p>
+            </div>
+
+            <!-- Form -->
+            <form method="POST" action="{{ url_for('select_goals') }}" id="goalsForm">
+                <div class="goals-grid">
+                    <!-- Cognitive -->
+                    <label class="goal-card">
+                        <input type="checkbox" name="development_goals" value="Cognitive" class="goal-checkbox">
+                        <div class="goal-content">
+                            <div class="goal-icon">🧠</div>
+                            <h3 class="goal-title">Cognitive Development</h3>
+                            <p class="goal-description">Problem solving, thinking, learning</p>
+                            <span class="checkmark">✓</span>
+                        </div>
+                    </label>
+
+                    <!-- Social-Emotional -->
+                    <label class="goal-card">
+                        <input type="checkbox" name="development_goals" value="Social-Emotional" class="goal-checkbox">
+                        <div class="goal-content">
+                            <div class="goal-icon">💚</div>
+                            <h3 class="goal-title">Social-Emotional Growth</h3>
+                            <p class="goal-description">Emotions, connections, empathy</p>
+                            <span class="checkmark">✓</span>
+                        </div>
+                    </label>
+
+                    <!-- Linguistic -->
+                    <label class="goal-card">
+                        <input type="checkbox" name="development_goals" value="Linguistic" class="goal-checkbox">
+                        <div class="goal-content">
+                            <div class="goal-icon">💬</div>
+                            <h3 class="goal-title">Linguistic Development</h3>
+                            <p class="goal-description">Speaking, listening, communication</p>
+                            <span class="checkmark">✓</span>
+                        </div>
+                    </label>
+
+                    <!-- Physical -->
+                    <label class="goal-card">
+                        <input type="checkbox" name="development_goals" value="Physical" class="goal-checkbox">
+                        <div class="goal-content">
+                            <div class="goal-icon">🤸</div>
+                            <h3 class="goal-title">Physical<br>Development</h3>
+                            <p class="goal-description">Movement, coordination, motor skills</p>
+                            <span class="checkmark">✓</span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Buttons -->
+                <div class="btn-group">
+                    <a href="{{ url_for('create_profile') }}" class="btn-back">← Back</a>
+                    <button type="submit" class="btn-finish" id="finishBtn">
+                        🌿 Start Journey
+                    </button>
+                </div>
+            </form>
+
+            <!-- Progress -->
+            <div class="progress-indicator">
+                <div class="progress-step active"></div>
+                <div class="progress-step active"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Goals Card */
+.goals-card {
+    background: white;
+    border-radius: 24px;
+    padding: 40px 32px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* Header */
+.goals-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.goals-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.goals-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* Goals Grid */
+.goals-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+@media (min-width: 640px) {
+    .goals-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Goal Card */
+.goal-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 16px;
+    border: 2px solid #e5e7eb;
+    background: white;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.goal-card:hover {
+    border-color: #d1d5db;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.goal-checkbox {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.goal-checkbox:checked + .goal-content {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+}
+
+.goal-checkbox:checked + .goal-content .checkmark {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.goal-content {
+    padding: 24px;
+    position: relative;
+    border-radius: 14px;
+    transition: all 0.2s ease;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+}
+
+.goal-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
+
+.goal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.goal-description {
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.checkmark {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    background: #10b981;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+}
+
+/* Button Group */
+.btn-group {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+}
+
+.btn-back {
+    padding: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+    background: #e5e7eb;
+}
+
+.btn-finish {
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #4ade80 0%, #10b981 100%);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    transition: all 0.3s ease;
+}
+
+.btn-finish:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-finish:active {
+    transform: translateY(0);
+}
+
+/* Progress Indicator */
+.progress-indicator {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.progress-step {
+    width: 32px;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    transition: background 0.3s ease;
+}
+
+.progress-step.active {
+    background: #ec4899;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .goals-card {
+        padding: 32px 24px;
+    }
+
+    .goals-title {
+        font-size: 20px;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .goal-card:hover,
+    .btn-finish:hover {
+        transform: none;
+    }
+}
+</style>
+
+<script>
+// Form validation
+document.getElementById('goalsForm').addEventListener('submit', function(e) {
+    const checkboxes = document.querySelectorAll('input[name="development_goals"]:checked');
+    
+    if (checkboxes.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one development goal');
+        return;
+    }
+    
+    // Add loading state
+    const btn = document.getElementById('finishBtn');
+    btn.innerHTML = '✨ Creating your journey...';
+    btn.disabled = true;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 400ms ease-out;
+}
+
+.scale-in {
+    animation: scaleIn 400ms ease-out;
+}
+
+.bounce {
+    animation: bounce 600ms ease-in-out;
+}
+
+.pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.card, .btn, .emoji-option, .development-goal-card {
+    transition: all 300ms ease;
+}
+
+.celebration-icon {
+    animation: bounce 600ms ease-in-out;
+}
+
+.activity-step {
+    animation: fadeIn 400ms ease-out;
+    animation-fill-mode: both;
+}
+
+.activity-step:nth-child(1) { animation-delay: 0ms; }
+.activity-step:nth-child(2) { animation-delay: 100ms; }
+.activity-step:nth-child(3) { animation-delay: 200ms; }
+.activity-step:nth-child(4) { animation-delay: 300ms; }

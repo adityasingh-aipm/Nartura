@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Meet Your Little One - Nurtura{% endblock %}
+
+{% block content %}
+<div class="gradient-bg" style="background: linear-gradient(180deg, #ffffff 0%, #fce7f3 50%, #dbeafe 100%); min-height: 100vh; display: flex; align-items: center; padding: 24px;">
+    <div class="container" style="max-width: 480px; margin: 0 auto;">
+        <div class="baby-onboarding-card fade-in">
+            <!-- Greeting Section -->
+            <div class="onboarding-greeting">
+                <h1 class="onboarding-title">Hi there, wonderful parent 💕</h1>
+                <p class="onboarding-subtitle">Let's <span style="color: #EC4899; font-weight: 600;">get to know</span> your little one 🌸</p>
+            </div>
+
+            <!-- Form Section -->
+            <form method="POST" action="{{ url_for('onboarding') }}" id="babyOnboardingForm">
+                <!-- Baby Name Input -->
+                <div class="form-group">
+                    <label class="onboarding-label">
+                        <span class="label-emoji">👶</span>
+                        <span>Baby's name</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="baby_name" 
+                        name="baby_name" 
+                        class="onboarding-input" 
+                        placeholder="Enter name here"
+                        maxlength="30"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <!-- Age Group Dropdown -->
+                <div class="form-group">
+                    <label class="onboarding-label">
+                        <span class="label-emoji">🎂</span>
+                        <span>Baby's age group</span>
+                    </label>
+                    <div class="custom-select-wrapper">
+                        <select 
+                            id="age_group" 
+                            name="age_group" 
+                            class="onboarding-select"
+                            required
+                        >
+                            <option value="">Select age group</option>
+                            <option value="0-3 months">Newborn (0-3 months)</option>
+                            <option value="4-11 months">Infant (4-11 months)</option>
+                            <option value="1-3 years">Toddler (1-3 years)</option>
+                            <option value="3-5 years">Preschooler (3-5 years)</option>
+                            <option value="5-8 years">Early Learner (5-8 years)</option>
+                        </select>
+                        <div class="select-arrow">▼</div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn-journey" id="startJourneyBtn">
+                    🌿 Start the Journey
+                </button>
+            </form>
+
+            <!-- Emotional Hooks -->
+            <div class="onboarding-hooks">
+                <div class="hook-divider"></div>
+                
+                <div class="hook-quote">
+                    <p>✨ "Every <span class="highlight">small moment</span> you nurture today</p>
+                    <p>shapes a <span class="highlight">beautiful tomorrow.</span>"</p>
+                </div>
+
+                <div class="hook-social-proof">
+                    <p>💬 "Loved by <span class="highlight">thousands of parents</span></p>
+                    <p>discovering <span class="highlight">joy</span> with Nurtura."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Baby Onboarding Card */
+.baby-onboarding-card {
+    background: white;
+    border-radius: 24px;
+    padding: 40px 32px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* Greeting */
+.onboarding-greeting {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.onboarding-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.onboarding-subtitle {
+    font-size: 18px;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+/* Form Group */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.onboarding-label {
+    display: flex;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 12px;
+}
+
+.label-emoji {
+    font-size: 24px;
+    margin-right: 8px;
+}
+
+/* Input Styling */
+.onboarding-input {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 500;
+    border: 2px solid #f9a8d4;
+    border-radius: 24px;
+    background: white;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.onboarding-input:focus {
+    outline: none;
+    border-color: #ec4899;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+}
+
+.onboarding-input::placeholder {
+    color: #9ca3af;
+}
+
+/* Custom Select Styling */
+.custom-select-wrapper {
+    position: relative;
+}
+
+.onboarding-select {
+    width: 100%;
+    padding: 16px 40px 16px 16px;
+    font-size: 16px;
+    font-weight: 500;
+    border: 2px solid #f9a8d4;
+    border-radius: 24px;
+    background: white;
+    cursor: pointer;
+    appearance: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.onboarding-select:focus {
+    outline: none;
+    border-color: #ec4899;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+}
+
+.select-arrow {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ec4899;
+    pointer-events: none;
+    font-size: 12px;
+}
+
+/* Journey Button */
+.btn-journey {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #4ade80 0%, #10b981 100%);
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    transition: all 0.3s ease;
+    margin-top: 8px;
+}
+
+.btn-journey:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-journey:active {
+    transform: translateY(0);
+}
+
+/* Emotional Hooks */
+.onboarding-hooks {
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid #f9a8d4;
+}
+
+.hook-quote,
+.hook-social-proof {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.hook-quote p,
+.hook-social-proof p {
+    font-size: 20px;
+    color: #374151;
+    line-height: 1.5;
+    margin: 2px 0;
+}
+
+.hook-social-proof p {
+    font-size: 18px;
+}
+
+.highlight {
+    color: #ec4899;
+    font-weight: 600;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 480px) {
+    .baby-onboarding-card {
+        padding: 32px 24px;
+    }
+
+    .onboarding-title {
+        font-size: 24px;
+    }
+
+    .onboarding-subtitle {
+        font-size: 16px;
+    }
+
+    .hook-quote p {
+        font-size: 18px;
+    }
+
+    .hook-social-proof p {
+        font-size: 16px;
+    }
+}
+
+/* Tablet */
+@media (min-width: 768px) {
+    .baby-onboarding-card {
+        padding: 48px 40px;
+    }
+
+    .onboarding-title {
+        font-size: 32px;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    .btn-journey:hover {
+        transform: none;
+    }
+}
+</style>
+
+<script>
+// Form validation
+document.getElementById('babyOnboardingForm').addEventListener('submit', function(e) {
+    const babyName = document.getElementById('baby_name').value.trim();
+    const ageGroup = document.getElementById('age_group').value;
+    
+    if (!babyName) {
+        e.preventDefault();
+        alert('Please enter your baby\'s name');
+        document.getElementById('baby_name').focus();
+        return;
+    }
+    
+    if (!ageGroup) {
+        e.preventDefault();
+        alert('Please select your baby\'s age group');
+        document.getElementById('age_group').focus();
+        return;
+    }
+    
+    // Add loading state to button
+    const btn = document.getElementById('startJourneyBtn');
+    btn.innerHTML = '✨ Creating your journey...';
+    btn.disabled = true;
+});
+
+// Enter key support on select
+document.getElementById('age_group').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('babyOnboardingForm').dispatchEvent(new Event('submit'));
+    }
+});
+</script>
+{% endblock %}

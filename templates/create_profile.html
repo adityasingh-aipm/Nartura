@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Create Child Profile - Nurtura{% endblock %}
+
+{% block content %}
+<div class="gradient-bg" style="background: linear-gradient(180deg, #ffffff 0%, #fce7f3 50%, #dbeafe 100%); min-height: 100vh; display: flex; align-items: center; padding: 24px;">
+    <div class="container" style="max-width: 480px; margin: 0 auto;">
+        <div class="profile-card fade-in">
+            <!-- Header -->
+            <div class="profile-header">
+                <h1 class="profile-title">Hi there, wonderful parent 💕</h1>
+                <p class="profile-subtitle">Let's create a profile for your little one</p>
+            </div>
+
+            <!-- Form -->
+            <form method="POST" action="{{ url_for('create_profile') }}" id="profileForm">
+                <!-- Child Name -->
+                <div class="form-group">
+                    <label class="profile-label">
+                        <span class="label-emoji">👶</span>
+                        <span>Child's name</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="baby_name" 
+                        name="baby_name" 
+                        class="profile-input" 
+                        placeholder="Enter name here"
+                        maxlength="30"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <!-- Age Group -->
+                <div class="form-group">
+                    <label class="profile-label">
+                        <span class="label-emoji">🎂</span>
+                        <span>Age group</span>
+                    </label>
+                    <div class="custom-select-wrapper">
+                        <select 
+                            id="age_group" 
+                            name="age_group" 
+                            class="profile-select"
+                            required
+                        >
+                            <option value="">Select age group</option>
+                            <option value="0–3 Months">0–3 Months&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👶 Newborn Nurture</option>
+                            <option value="3–6 Months">3–6 Months&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🤗 Curious Explorer</option>
+                            <option value="6–12 Months">6–12 Months&nbsp;&nbsp;&nbsp;🧸 Little Discoverer</option>
+                            <option value="1–2 Years">1–2 Years&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💬 Tiny Talker</option>
+                            <option value="2–4 Years">2–4 Years&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🎨 Playful Learner</option>
+                            <option value="4–6 Years">4–6 Years&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌟 Confident Creator</option>
+                        </select>
+                        <div class="select-arrow">▼</div>
+                    </div>
+                </div>
+
+                <!-- Next Button -->
+                <button type="submit" class="btn-next" id="nextBtn">
+                    Next: Choose Goals →
+                </button>
+            </form>
+
+            <!-- Progress -->
+            <div class="progress-indicator">
+                <div class="progress-step active"></div>
+                <div class="progress-step"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Profile Card */
+.profile-card {
+    background: white;
+    border-radius: 24px;
+    padding: 40px 32px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* Header */
+.profile-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.profile-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.profile-subtitle {
+    font-size: 16px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+/* Form Group */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.profile-label {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 12px;
+}
+
+.label-emoji {
+    font-size: 22px;
+    margin-right: 8px;
+}
+
+/* Input Styling */
+.profile-input {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 500;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    background: white;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.profile-input:focus {
+    outline: none;
+    border-color: #ec4899;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+}
+
+.profile-input::placeholder {
+    color: #9ca3af;
+}
+
+/* Custom Select */
+.custom-select-wrapper {
+    position: relative;
+}
+
+.profile-select {
+    width: 100%;
+    padding: 16px 40px 16px 16px;
+    font-size: 16px;
+    font-weight: 500;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    background: white;
+    cursor: pointer;
+    appearance: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.profile-select:focus {
+    outline: none;
+    border-color: #ec4899;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+}
+
+.select-arrow {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ec4899;
+    pointer-events: none;
+    font-size: 12px;
+}
+
+/* Next Button */
+.btn-next {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #4ade80 0%, #10b981 100%);
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    transition: all 0.3s ease;
+    margin-top: 8px;
+}
+
+.btn-next:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-next:active {
+    transform: translateY(0);
+}
+
+/* Progress Indicator */
+.progress-indicator {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.progress-step {
+    width: 32px;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    transition: background 0.3s ease;
+}
+
+.progress-step.active {
+    background: #ec4899;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .profile-card {
+        padding: 32px 24px;
+    }
+
+    .profile-title {
+        font-size: 24px;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .btn-next:hover {
+        transform: none;
+    }
+}
+</style>
+
+<script>
+// Form validation
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+    const babyName = document.getElementById('baby_name').value.trim();
+    const ageGroup = document.getElementById('age_group').value;
+    
+    if (!babyName) {
+        e.preventDefault();
+        alert('Please enter your child\'s name');
+        document.getElementById('baby_name').focus();
+        return;
+    }
+    
+    if (!ageGroup) {
+        e.preventDefault();
+        alert('Please select an age group');
+        document.getElementById('age_group').focus();
+        return;
+    }
+    
+    // Add loading state
+    const btn = document.getElementById('nextBtn');
+    btn.innerHTML = '✨ Creating profile...';
+    btn.disabled = true;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creating Your Journey - Nurtura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="loading-container">
+    <div class="loading-content">
+      <!-- Animated Icon -->
+      <div class="loading-icon">
+        <div class="spinner">🌿</div>
+      </div>
+      
+      <!-- Rotating Messages -->
+      <h1 class="loading-message" id="loadingMessage">Creating your personalized journey ✨</h1>
+      
+      <!-- Subtitle -->
+      <p class="loading-subtitle">This will just take a moment...</p>
+    </div>
+  </div>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Poppins", "Nunito", "Inter", system-ui, sans-serif;
+      background: linear-gradient(180deg, #FDFAF5 0%, #FCE7F3 50%, #DBEAFE 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .loading-container {
+      width: 100%;
+      max-width: 500px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .loading-content {
+      background: white;
+      border-radius: 32px;
+      padding: 60px 40px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+
+    .loading-icon {
+      margin-bottom: 32px;
+    }
+
+    .spinner {
+      font-size: 80px;
+      display: inline-block;
+      animation: rotate 3s linear infinite;
+    }
+
+    @keyframes rotate {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading-message {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1F2937;
+      margin-bottom: 16px;
+      line-height: 1.4;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      animation: fadeInOut 5s ease-in-out infinite;
+    }
+
+    @keyframes fadeInOut {
+      0% {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      10% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      90% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
+
+    .loading-subtitle {
+      font-size: 16px;
+      color: #6B7280;
+      font-weight: 500;
+    }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 480px) {
+      .loading-content {
+        padding: 40px 24px;
+      }
+
+      .spinner {
+        font-size: 64px;
+      }
+
+      .loading-message {
+        font-size: 20px;
+        min-height: 70px;
+      }
+
+      .loading-subtitle {
+        font-size: 14px;
+      }
+    }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      .spinner {
+        animation: none;
+      }
+      
+      .loading-message {
+        animation: none;
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <script>
+    // Messages to rotate through
+    const babyName = {{ baby_name|tojson }};
+    const messages = [
+      "Creating your personalized journey ✨",
+      `Preparing activities just for ${babyName} 💕`,
+      "Gathering joyful moments for you both 🌸",
+      "Setting up your day of smiles 🌿",
+      "Bringing today's nurturing ideas to life 💖"
+    ];
+
+    let currentIndex = 0;
+    const messageElement = document.getElementById('loadingMessage');
+    let rotationInterval = null;
+
+    // Rotate messages every 5 seconds
+    function rotateMessage() {
+      currentIndex = (currentIndex + 1) % messages.length;
+      messageElement.textContent = messages[currentIndex];
+    }
+
+    // Start rotation
+    rotationInterval = setInterval(rotateMessage, 5000);
+
+    // Trigger content generation via API and redirect when ready
+    async function generateContent(retryCount = 0) {
+      try {
+        const response = await fetch('/api/generate-content', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.ready) {
+          // Content is ready, stop rotation and redirect to home
+          if (rotationInterval) clearInterval(rotationInterval);
+          window.location.href = '/home';
+        } else if (data.error) {
+          // Server returned an error, retry after 3 seconds
+          if (retryCount < 3) {
+            messageElement.textContent = "One moment please... 🌸";
+            setTimeout(() => generateContent(retryCount + 1), 3000);
+          } else {
+            // Max retries reached, stop rotation and show error state
+            if (rotationInterval) clearInterval(rotationInterval);
+            messageElement.textContent = "Having trouble loading. Please refresh the page 💕";
+          }
+        }
+      } catch (error) {
+        console.error('Error generating content:', error);
+        
+        // Retry logic for network errors
+        if (retryCount < 3) {
+          messageElement.textContent = "One moment please... 🌸";
+          setTimeout(() => generateContent(retryCount + 1), 3000);
+        } else {
+          // Max retries reached, stop rotation and show error state
+          if (rotationInterval) clearInterval(rotationInterval);
+          messageElement.textContent = "Having trouble connecting. Please refresh the page 💕";
+        }
+      }
+    }
+
+    // Start generation as soon as page loads
+    generateContent();
+  </script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}{{ challenge.title }} - Nurtura{% endblock %}
+
+{% block content %}
+<div class="challenge-detail-container">
+  <!-- Header -->
+  <div class="challenge-detail-header" style="background: {% if challenge.duration_days == 30 %}rgba(212, 241, 228, 0.6){% elif challenge.duration_days == 90 %}rgba(214, 232, 247, 0.6){% elif challenge.duration_days == 180 %}rgba(244, 217, 232, 0.6){% else %}rgba(255, 232, 201, 0.6){% endif %};">
+    <a href="/home" class="back-btn">← Back</a>
+    <div class="challenge-hero">
+      <span class="challenge-hero-emoji">{{ challenge.cover_image }}</span>
+      <h1>{{ challenge.title }}</h1>
+      <p class="challenge-hero-tagline">{{ challenge.tagline }}</p>
+      <span class="challenge-hero-duration">{{ challenge.duration_days }} Days</span>
+    </div>
+  </div>
+  
+  <!-- Description -->
+  <div class="challenge-description-section">
+    <h2>About This Challenge</h2>
+    <p>{{ challenge.description }}</p>
+  </div>
+  
+  <!-- Sample Activities -->
+  <div class="challenge-activities-section">
+    <h2>Sample Activities (First 10 Days)</h2>
+    <p class="activities-note">Get a preview of what you and {{ baby.baby_name }} will do together!</p>
+    
+    <div class="activities-list">
+      {% for activity in activities %}
+      <div class="activity-item">
+        <div class="activity-day">Day {{ activity.day_number }}</div>
+        <div class="activity-details">
+          <h3>{{ activity.activity_title }}</h3>
+          <p>{{ activity.activity_description }}</p>
+          <div class="activity-meta">
+            <span>⏱ {{ activity.duration_min }} min</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  
+  <!-- Enrollment Section -->
+  <div class="challenge-enroll-section">
+    {% if is_enrolled %}
+    <div class="enrolled-badge">
+      <h3>✓ You're Enrolled!</h3>
+      <p>Keep up the great work with {{ baby.baby_name }}! 💕</p>
+      <a href="/home" class="btn-secondary">Back to Home</a>
+    </div>
+    {% else %}
+    <div class="enroll-prompt">
+      <h3>Ready to Start?</h3>
+      <p>Join {{ challenge.duration_days }} days of bonding with {{ baby.baby_name }}!</p>
+      <button class="btn-enroll" onclick="enrollChallenge({{ challenge.id }})">
+        Start Challenge 🎯
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", "Nunito", "Inter", system-ui, sans-serif;
+  background: #FDFAF5;
+}
+
+.challenge-detail-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding-bottom: 80px;
+}
+
+/* Header */
+.challenge-detail-header {
+  padding: 20px 16px 40px 16px;
+  text-align: center;
+  position: relative;
+}
+
+.back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  color: #1A365D;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  transition: all 300ms ease;
+}
+
+.back-btn:hover {
+  background: white;
+  transform: translateX(-4px);
+}
+
+.challenge-hero {
+  margin-top: 20px;
+}
+
+.challenge-hero-emoji {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.challenge-detail-header h1 {
+  font-size: 28px;
+  color: #1A365D;
+  margin-bottom: 8px;
+}
+
+.challenge-hero-tagline {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.challenge-hero-duration {
+  display: inline-block;
+  background: white;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1A365D;
+}
+
+/* Description Section */
+.challenge-description-section {
+  padding: 24px 16px;
+  background: white;
+  margin: 0 16px 24px 16px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.challenge-description-section h2 {
+  font-size: 20px;
+  color: #1A365D;
+  margin-bottom: 12px;
+}
+
+.challenge-description-section p {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* Activities Section */
+.challenge-activities-section {
+  padding: 24px 16px;
+  margin: 0 16px 24px 16px;
+}
+
+.challenge-activities-section h2 {
+  font-size: 20px;
+  color: #1A365D;
+  margin-bottom: 8px;
+}
+
+.activities-note {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.activities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activity-item {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  gap: 16px;
+}
+
+.activity-day {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: center;
+}
+
+.activity-details {
+  flex: 1;
+}
+
+.activity-details h3 {
+  font-size: 16px;
+  color: #1A365D;
+  margin-bottom: 8px;
+}
+
+.activity-details p {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Enrollment Section */
+.challenge-enroll-section {
+  padding: 24px 16px;
+  margin: 0 16px;
+}
+
+.enroll-prompt,
+.enrolled-badge {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.enroll-prompt h3,
+.enrolled-badge h3 {
+  font-size: 24px;
+  color: #1A365D;
+  margin-bottom: 12px;
+}
+
+.enroll-prompt p,
+.enrolled-badge p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.btn-enroll {
+  background: linear-gradient(135deg, #FF69B4, #FF1493);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 300ms ease;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.3);
+}
+
+.btn-enroll:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 105, 180, 0.4);
+}
+
+.btn-secondary {
+  display: inline-block;
+  background: #E5E7EB;
+  color: #1A365D;
+  padding: 12px 24px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 300ms ease;
+}
+
+.btn-secondary:hover {
+  background: #D1D5DB;
+}
+
+.enrolled-badge {
+  background: rgba(76, 175, 80, 0.1);
+  border: 2px solid #4CAF50;
+}
+
+.enrolled-badge h3 {
+  color: #4CAF50;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .challenge-detail-header {
+    padding: 32px 24px 60px 24px;
+  }
+  
+  .challenge-hero-emoji {
+    font-size: 80px;
+  }
+  
+  .challenge-detail-header h1 {
+    font-size: 32px;
+  }
+  
+  .challenge-description-section,
+  .challenge-activities-section,
+  .challenge-enroll-section {
+    margin: 0 0 32px 0;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .back-btn,
+  .btn-enroll {
+    transition: none;
+  }
+  
+  .back-btn:hover,
+  .btn-enroll:hover {
+    transform: none;
+  }
+}
+</style>
+
+<script>
+function enrollChallenge(challengeId) {
+  fetch(`/api/enroll-challenge/${challengeId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      // Show success message
+      alert('🎉 ' + data.message);
+      // Reload page to show enrolled state
+      window.location.reload();
+    } else {
+      alert('Something went wrong. Please try again!');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Something went wrong. Please try again!');
+  });
+}
+</script>
+{% endblock %}

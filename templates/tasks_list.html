@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ area.area_name }} - Tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="tasks-list-container">
+  <!-- Header -->
+  <div class="header">
+    <a href="/home" class="back-btn">← Back</a>
+    <h1>{{ area.area_name }}</h1>
+  </div>
+  
+  <!-- Area Info Banner -->
+  <div class="area-banner" style="background-color: {{ area.background_color }};">
+    <div class="banner-content">
+      <h2>{{ area.area_name }}</h2>
+      <p>{{ area.description }}</p>
+      <span class="type-badge">{{ area.development_type }}</span>
+    </div>
+    <div class="banner-emoji">{{ area.icon_emoji }}</div>
+  </div>
+  
+  <!-- Tasks Section -->
+  <div class="tasks-section">
+    <h3>Activities for today</h3>
+    <p class="tasks-subtitle">Choose an activity and get ready to bond with your little one! 💕</p>
+    
+    <!-- Tasks List (Minimal, Scannable) -->
+    <div class="tasks-list" id="tasksList">
+      {% if activities %}
+        {% for activity in activities %}
+        <div class="task-card {% if completed_tasks and activity.id in completed_tasks %}completed{% endif %}" onclick="viewTaskDetail({{ activity.id }})">
+          <!-- Task Icon -->
+          <div class="task-icon">{{ activity.activity_icon }}</div>
+          
+          <!-- Task Info -->
+          <div class="task-info">
+            <h4>{{ activity.activity_title }}</h4>
+            <p class="task-description">{{ activity.short_description }}</p>
+            <div class="task-meta">
+              <span class="duration">⏱️ {{ activity.duration_min }} min</span>
+              {% if completed_tasks and activity.id in completed_tasks %}
+              <span class="completed-badge">✓ Done Today</span>
+              {% endif %}
+            </div>
+          </div>
+          
+          <!-- Arrow or Checkmark (CTA) -->
+          <div class="task-arrow">
+            {% if completed_tasks and activity.id in completed_tasks %}
+            ✓
+            {% else %}
+            →
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="no-tasks">
+        <p>🚀 Tasks coming soon! Check back in a moment.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", "Nunito", "Inter", system-ui, sans-serif;
+  background: #FDFAF5;
+}
+
+.tasks-list-container {
+  width: 100%;
+  min-height: 100vh;
+  padding: 0;
+  margin: 0;
+  background: #FDFAF5;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: white;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.back-btn {
+  color: #4CAF50;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 300ms ease;
+}
+
+.back-btn:hover {
+  color: #45a049;
+}
+
+.header h1 {
+  color: #1A365D;
+  font-size: 20px;
+  margin: 0;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Area Banner */
+.area-banner {
+  padding: 24px 16px;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.banner-content {
+  flex: 1;
+  color: #1A365D;
+}
+
+.area-banner h2 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.area-banner p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.type-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1A365D;
+}
+
+.banner-emoji {
+  font-size: 56px;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+/* Tasks Section */
+.tasks-section {
+  padding: 20px 16px;
+}
+
+.tasks-section h3 {
+  color: #1A365D;
+  font-size: 18px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.tasks-subtitle {
+  color: #8B8B8B;
+  font-size: 13px;
+  margin: 0 0 20px 0;
+}
+
+/* Tasks List */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-card {
+  background: white;
+  border: 1px solid #E0E0E0;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 300ms ease;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.task-card:active {
+  background: #F5F5F5;
+  transform: scale(0.98);
+}
+
+.task-card:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
+}
+
+/* Task Icon */
+.task-icon {
+  font-size: 36px;
+  min-width: 50px;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Task Info */
+.task-info {
+  flex: 1;
+}
+
+.task-card h4 {
+  color: #1A365D;
+  font-size: 15px;
+  margin: 0 0 6px 0;
+  font-weight: 600;
+}
+
+.task-description {
+  color: #666;
+  font-size: 12px;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.task-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.duration {
+  color: #8B8B8B;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Completed Badge */
+.completed-badge {
+  background: #4CAF50;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Completed Task Card */
+.task-card.completed {
+  background: rgba(76, 175, 80, 0.05);
+  border-color: #4CAF50;
+}
+
+.task-card.completed .task-icon {
+  opacity: 0.7;
+}
+
+.task-card.completed h4 {
+  color: #4CAF50;
+}
+
+/* Arrow CTA */
+.task-arrow {
+  color: #4CAF50;
+  font-size: 20px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* No Tasks */
+.no-tasks {
+  text-align: center;
+  padding: 40px 20px;
+  background: white;
+  border-radius: 12px;
+  color: #666;
+}
+
+/* Mobile Responsive */
+@media (min-width: 768px) {
+  .tasks-list {
+    gap: 14px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .area-banner {
+    padding: 30px 24px;
+  }
+  
+  .tasks-section {
+    padding: 30px 24px;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .task-card:hover {
+    border-color: #E0E0E0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .task-card {
+    min-height: 70px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .task-card {
+    transition: none;
+  }
+}
+</style>
+
+<script>
+function viewTaskDetail(activityId) {
+  window.location.href = `/activity/${activityId}`;
+}
+</script>
+</body>
+</html>
