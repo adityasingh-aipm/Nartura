@@ -1,0 +1,986 @@
+# NURTURA HOMEPAGE OVERHAUL - Areas & Activities (Final)
+
+Build a two-screen experience post-onboarding:
+1. **Areas Screen** (Homepage) - Shows development areas for child
+2. **Activities Screen** - Shows 3-5 activities per area with icons
+
+**SKIP:** Ability assessment - go straight from onboarding to areas screen.
+
+---
+
+## 🎯 FLOW (SIMPLIFIED)
+
+```
+Signup → Onboarding (baby details + goals) 
+  ↓
+[NEW] Areas Screen (Homepage) - Generated from age + goals
+  ↓ (parent clicks area)
+[NEW] Activities Screen - Generated activities with icons
+  ↓ (parent clicks activity)
+Coming Soon Screen (placeholder for timer in future)
+```
+
+---
+
+## 🗄️ NEW DATABASE TABLES
+
+```sql
+-- Store development areas (generated per baby based on age + goals)
+CREATE TABLE development_areas (
+  id INTEGER PRIMARY KEY,
+  baby_id INTEGER,
+  area_name TEXT, -- e.g., "Throwing and Catching", "Language Structure"
+  development_type TEXT, -- "Physical", "Cognitive", "Linguistic", "Social-Emotional"
+  age_range_min INTEGER, -- in months
+  age_range_max INTEGER,
+  icon_emoji TEXT, -- emoji to display on card
+  background_color TEXT, -- hex color for card (e.g., #D6E8F7 for blue)
+  description TEXT, -- brief description
+  activity_count INTEGER, -- number of activities for this area
+  created_at TIMESTAMP,
+  FOREIGN KEY (baby_id) REFERENCES babies(id)
+);
+
+-- Store activities per area
+CREATE TABLE area_activities (
+  id INTEGER PRIMARY KEY,
+  area_id INTEGER,
+  activity_title TEXT,
+  short_description TEXT,
+  materials TEXT, -- JSON array
+  how_to TEXT, -- JSON array of steps
+  duration_min INTEGER, -- 5-10 mins
+  why_it_helps TEXT,
+  safety_notes TEXT,
+  reflection_prompt TEXT,
+  activity_icon TEXT, -- emoji icon for activity
+  created_at TIMESTAMP,
+  FOREIGN KEY (area_id) REFERENCES development_areas(id)
+);
+```
+
+---
+
+## 🔄 UPDATE ROUTES
+
+### Remove These (if they exist):
+- `GET /ability-assessment/<baby_id>`
+- `POST /ability-assessment`
+- `GET /generate-activities/<baby_id>`
+
+### Keep/Update:
+- `GET /onboarding` → After completion, redirect to `/home`
+- `POST /onboarding` → Save baby details, then redirect to `/home`
+
+---
+
+## 📱 FEATURE 1: AREAS SCREEN (Homepage)
+
+After onboarding completes, parent is redirected to areas screen.
+
+### Updated Route: Modify Onboarding Completion
+
+```python
+# In app.py, update the onboarding route:
+
+@app.route('/onboarding', methods=['POST'])
+@login_required
+def save_onboarding():
+    """
+    Save baby details and goals, then generate areas and redirect to home
+    """
+    user_id = session['user_id']
+    baby_name = request.form.get('baby_name')
+    dob = request.form.get('dob')
+    goals = request.form.getlist('development_goals')
+    
+    # Validate
+    if not baby_name or not dob or not goals:
+        return redirect('/onboarding')  # Show error
+    
+    # Calculate age in months
+    from datetime import datetime
+    birth_date = datetime.strptime(dob, '%Y-%m-%d')
+    today = datetime.now()
+    age_months = int((today - birth_date).days / 30.44)
+    
+    # Create baby record
+    db.execute(
+        '''INSERT INTO babies (user_id, baby_name, date_of_birth, age_months, development_goals)
+           VALUES (?, ?, ?, ?, ?)''',
+        (user_id, baby_name, dob, age_months, json.dumps(goals))
+    )
+    db.commit()
+    
+    baby_id = db.lastrowid
+    session['baby_id'] = baby_id
+    
+    # Generate areas (will happen on first visit to /home)
+    return redirect('/home')
+
+
+@app.route('/home')
+@login_required
+def home():
+    """
+    Show areas screen (homepage) with development areas for the baby
+    """
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    
+    if not baby:
+        return redirect('/onboarding')
+    
+    # Check if areas already generated (to avoid regenerating every visit)
+    existing_areas = db.execute(
+        'SELECT * FROM development_areas WHERE baby_id = ? ORDER BY development_type',
+        (baby.id,)
+    ).fetchall()
+    
+    if not existing_areas:
+        # First visit: Generate areas based on age + goals
+        areas = generate_development_areas(baby)
+        
+        # Store in DB
+        for area in areas:
+            db.execute(
+                '''INSERT INTO development_areas 
+                   (baby_id, area_name, development_type, age_range_min, age_range_max, 
+                    icon_emoji, background_color, description, activity_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (baby.id, area['name'], area['type'], area['age_min'], 
+                 area['age_max'], area['emoji'], area['color'], area['description'], 
+                 area.get('activity_count', 3))
+            )
+        db.commit()
+        existing_areas = db.execute(
+            'SELECT * FROM development_areas WHERE baby_id = ? ORDER BY development_type',
+            (baby.id,)
+        ).fetchall()
+    
+    return render_template('areas.html', baby=baby, areas=existing_areas)
+
+
+def generate_development_areas(baby):
+    """
+    Call Claude to generate development areas based on baby age + goals
+    
+    Areas = sub-categories within each development type
+    e.g., Physical → "Throwing and Catching", "Running", "Balance", etc.
+    """
+    age_months = baby.age_months
+    goals = json.loads(baby.development_goals)
+    
+    # Define colors for each development type
+    color_map = {
+        "Physical": "#D6E8F7",  # Sky blue
+        "Cognitive": "#D4F1E4",  # Mint green
+        "Linguistic": "#FFE5CC",  # Peach/orange
+        "Social-Emotional": "#F4D9E8"  # Blush pink
+    }
+    
+    emoji_map = {
+        "Physical": "🤸",
+        "Cognitive": "🧠",
+        "Linguistic": "💬",
+        "Social-Emotional": "💚"
+    }
+    
+    # Calculate number of areas based on age
+    if age_months <= 3:
+        num_areas = 2
+    elif age_months <= 6:
+        num_areas = 3
+    elif age_months <= 12:
+        num_areas = 5
+    elif age_months <= 24:
+        num_areas = 6
+    else:
+        num_areas = 8
+    
+    prompt = f"""
+    You are a child development expert. Generate {num_areas} development areas (sub-categories) for a {age_months}-month-old baby.
+    
+    Development goals: {', '.join(goals)}
+    
+    Requirements:
+    1. Generate exactly {num_areas} areas total
+    2. Distribute across the selected development goals
+    3. Each area should be a specific skill category within a development type
+    4. Areas should be age-appropriate and actionable
+    5. Include only areas relevant to this age group
+    
+    Format as JSON (return ONLY valid JSON, no markdown):
+    {{
+      "areas": [
+        {{
+          "name": "Throwing and Catching",
+          "type": "Physical",
+          "age_min": 12,
+          "age_max": 72,
+          "description": "Develops hand-eye coordination and gross motor control"
+        }},
+        {{
+          "name": "Language Structure and Grammar",
+          "type": "Linguistic",
+          "age_min": 24,
+          "age_max": 72,
+          "description": "Helps child use words in correct order and tense"
+        }}
+      ]
+    }}
+    
+    Make the areas engaging and specific to {age_months} months old child.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    areas_data = json.loads(response.content[0].text)
+    
+    # Add colors and emojis
+    for area in areas_data['areas']:
+        area['color'] = color_map.get(area['type'], '#FDFAF5')
+        area['emoji'] = emoji_map.get(area['type'], '🎯')
+        area['activity_count'] = 4  # Default 4 activities per area
+    
+    return areas_data['areas']
+```
+
+### HTML Template: `templates/areas.html`
+
+```html
+<div class="areas-container">
+  <!-- Hero Section -->
+  <div class="hero-greeting">
+    <div class="greeting-content">
+      <h1>👋 Welcome back!</h1>
+      <p>Today with {{ baby.baby_name }} ({{ baby.age_months }} months) 🌱</p>
+    </div>
+  </div>
+  
+  <!-- Choose an Activity Section -->
+  <div class="activities-section">
+    <h2>Choose an area to grow together 💕</h2>
+    
+    <!-- Tab Navigation (by Development Type) -->
+    <div class="tabs-container">
+      <button class="tab active" onclick="filterByType(event, 'all')">All</button>
+      <button class="tab" onclick="filterByType(event, 'Physical')">🤸 Physical</button>
+      <button class="tab" onclick="filterByType(event, 'Cognitive')">🧠 Cognitive</button>
+      <button class="tab" onclick="filterByType(event, 'Linguistic')">💬 Linguistic</button>
+      <button class="tab" onclick="filterByType(event, 'Social-Emotional')">💚 Emotional</button>
+    </div>
+    
+    <!-- Areas Grid -->
+    <div class="areas-grid" id="areasGrid">
+      {% for area in areas %}
+      <div class="area-card" data-type="{{ area.development_type }}" 
+           onclick="viewActivities({{ area.id }})">
+        
+        <!-- Background Color -->
+        <div class="area-card-background" style="background-color: {{ area.background_color }};">
+          <div class="area-header">
+            <span class="age-badge">{{ area.age_range_min }}-{{ area.age_range_max }} months</span>
+          </div>
+          
+          <!-- Area Info -->
+          <div class="area-info">
+            <h3>{{ area.area_name }}</h3>
+            <p>{{ area.description }}</p>
+          </div>
+          
+          <!-- Icon + Activity Count -->
+          <div class="area-footer">
+            <div class="area-emoji">{{ area.icon_emoji }}</div>
+            <span class="activity-count">{{ area.activity_count }} activities</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    
+    <!-- Empty State -->
+    {% if not areas %}
+    <div class="empty-state">
+      <p>📭 No areas available yet. Please complete onboarding.</p>
+      <a href="/onboarding" class="btn-primary">Continue Onboarding ➜</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", "Nunito", "Inter", system-ui, sans-serif;
+  background: #FDFAF5;
+}
+
+.areas-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Hero Section */
+.hero-greeting {
+  background: linear-gradient(135deg, #D4F1E4, #D6E8F7);
+  border-radius: 16px;
+  padding: 30px 20px;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.hero-greeting h1 {
+  color: #1A365D;
+  font-size: 28px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.hero-greeting p {
+  color: #555;
+  font-size: 16px;
+  margin: 8px 0 0 0;
+}
+
+/* Tab Navigation */
+.tabs-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.tab {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #E0E0E0;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  white-space: nowrap;
+  transition: all 300ms ease;
+}
+
+.tab:hover {
+  border-color: #4CAF50;
+  color: #4CAF50;
+}
+
+.tab.active {
+  background: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+}
+
+/* Activities Section */
+.activities-section h2 {
+  color: #1A365D;
+  font-size: 20px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+/* Areas Grid */
+.areas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.area-card {
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.area-card:hover .area-card-background {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.area-card-background {
+  border-radius: 16px;
+  padding: 20px;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 300ms ease;
+}
+
+.area-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.age-badge {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1A365D;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.area-info {
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.area-info h3 {
+  color: #1A365D;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.area-info p {
+  color: #555;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.area-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.area-emoji {
+  font-size: 48px;
+  opacity: 0.9;
+}
+
+.activity-count {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1A365D;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: white;
+  border-radius: 12px;
+}
+
+.empty-state p {
+  color: #666;
+  margin-bottom: 20px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .areas-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tabs-container {
+    justify-content: flex-start;
+  }
+  
+  .hero-greeting {
+    padding: 20px;
+  }
+  
+  .hero-greeting h1 {
+    font-size: 22px;
+  }
+}
+</style>
+
+<script>
+function filterByType(event, type) {
+  // Update active tab
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  // Filter cards
+  const cards = document.querySelectorAll('.area-card');
+  cards.forEach(card => {
+    if (type === 'all' || card.dataset.type === type) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+function viewActivities(areaId) {
+  window.location.href = `/activities/${areaId}`;
+}
+</script>
+```
+
+---
+
+## 📱 FEATURE 2: ACTIVITIES SCREEN
+
+When parent clicks an area, show all activities (3-5) for that area with icons.
+
+### Route
+
+```python
+@app.route('/activities/<int:area_id>')
+@login_required
+def view_activities(area_id):
+    """
+    Show all activities for a specific development area
+    """
+    area = db.execute(
+        'SELECT * FROM development_areas WHERE id = ?',
+        (area_id,)
+    ).fetchone()
+    
+    if not area:
+        return redirect('/home')
+    
+    # Check if activities already generated
+    existing_activities = db.execute(
+        'SELECT * FROM area_activities WHERE area_id = ? ORDER BY created_at',
+        (area_id,)
+    ).fetchall()
+    
+    if not existing_activities:
+        # First visit: Generate activities for this area
+        activities = generate_activities_for_area(area)
+        
+        # Store in DB
+        for activity in activities:
+            db.execute(
+                '''INSERT INTO area_activities 
+                   (area_id, activity_title, short_description, materials, how_to, 
+                    duration_min, why_it_helps, safety_notes, reflection_prompt, activity_icon)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (area_id, activity['title'], activity['short_description'],
+                 json.dumps(activity['materials']), json.dumps(activity['how_to']),
+                 activity['duration_min'], activity['why_it_helps'],
+                 activity.get('safety_notes', ''), activity.get('reflection_prompt', ''),
+                 activity.get('icon', '🎯'))
+            )
+        db.commit()
+        existing_activities = db.execute(
+            'SELECT * FROM area_activities WHERE area_id = ? ORDER BY created_at',
+            (area_id,)
+        ).fetchall()
+    
+    return render_template('activities.html', area=area, activities=existing_activities)
+
+
+def generate_activities_for_area(area):
+    """
+    Generate 3-5 activities for a specific development area with icons
+    """
+    age_range = f"{area['age_range_min']}-{area['age_range_max']}"
+    
+    prompt = f"""
+    You are a child development expert. Generate 3-5 fun, practical activities for this development area:
+    
+    Area: {area['area_name']}
+    Development Type: {area['development_type']}
+    Age Range: {age_range} months
+    Description: {area['description']}
+    
+    Requirements:
+    1. Each activity should take 5-10 minutes
+    2. Doable at home with common items
+    3. Safe and age-appropriate
+    4. Include clear materials, steps, and why it helps
+    5. Include a reflection prompt for the parent
+    6. Tone: warm, encouraging, joyful
+    7. Include an emoji icon for the activity
+    
+    Format as JSON (return ONLY valid JSON, no markdown):
+    {{
+      "activities": [
+        {{
+          "title": "Activity Name",
+          "short_description": "One-line summary of what to do",
+          "icon": "🎵",
+          "materials": ["Item 1", "Item 2", "Item 3"],
+          "how_to": [
+            "Step 1: Description",
+            "Step 2: Description",
+            "Step 3: Description"
+          ],
+          "why_it_helps": "Scientific explanation of developmental benefit",
+          "duration_min": 10,
+          "safety_notes": "Any safety considerations or tips",
+          "reflection_prompt": "What did you notice about your child during this activity?"
+        }},
+        {{
+          "title": "Another Activity",
+          "short_description": "Description",
+          "icon": "📚",
+          "materials": ["Item 1"],
+          "how_to": ["Step 1"],
+          "why_it_helps": "Explanation",
+          "duration_min": 8,
+          "safety_notes": "Notes",
+          "reflection_prompt": "Question for reflection"
+        }}
+      ]
+    }}
+    
+    Generate exactly 4 activities. Make them diverse and engaging.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    activities_data = json.loads(response.content[0].text)
+    return activities_data['activities']
+```
+
+### HTML Template: `templates/activities.html`
+
+```html
+<div class="activities-container">
+  <!-- Header -->
+  <div class="header">
+    <a href="/home" class="back-btn">← Back</a>
+    <h1>{{ area.area_name }}</h1>
+  </div>
+  
+  <!-- Area Info Banner -->
+  <div class="area-info-banner" style="background-color: {{ area.background_color }};">
+    <div class="banner-content">
+      <h2>{{ area.area_name }}</h2>
+      <p>{{ area.description }}</p>
+      <span class="type-badge">{{ area.development_type }}</span>
+    </div>
+    <div class="banner-emoji">{{ area.icon_emoji }}</div>
+  </div>
+  
+  <!-- Activities List -->
+  <div class="activities-list">
+    <h3>Activities for today</h3>
+    
+    {% if activities %}
+      {% for activity in activities %}
+      <div class="activity-card">
+        <!-- Left: Activity Icon -->
+        <div class="activity-icon">{{ activity.activity_icon }}</div>
+        
+        <!-- Center: Activity Info -->
+        <div class="activity-content">
+          <h4>{{ activity.activity_title }}</h4>
+          <p class="short-desc">{{ activity.short_description }}</p>
+          
+          <!-- Duration -->
+          <div class="activity-meta">
+            <span class="duration">⏱️ {{ activity.duration_min }} minutes</span>
+          </div>
+          
+          <!-- Why It Helps -->
+          <div class="why-it-helps">
+            <strong>Why it helps:</strong> {{ activity.why_it_helps }}
+          </div>
+          
+          <!-- Materials -->
+          {% set materials = activity.materials | from_json %}
+          {% if materials %}
+          <div class="materials">
+            <strong>You'll need:</strong>
+            <ul>
+              {% for material in materials %}
+                <li>{{ material }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          
+          <!-- How To -->
+          {% set steps = activity.how_to | from_json %}
+          {% if steps %}
+          <div class="how-to">
+            <strong>How to do it:</strong>
+            <ol>
+              {% for step in steps %}
+                <li>{{ step }}</li>
+              {% endfor %}
+            </ol>
+          </div>
+          {% endif %}
+          
+          <!-- Safety Notes -->
+          {% if activity.safety_notes %}
+          <p class="safety">🔒 <strong>Safety:</strong> {{ activity.safety_notes }}</p>
+          {% endif %}
+          
+          <!-- Reflection Prompt -->
+          {% if activity.reflection_prompt %}
+          <div class="reflection">
+            <strong>💭 After the activity:</strong> {{ activity.reflection_prompt }}
+          </div>
+          {% endif %}
+        </div>
+        
+        <!-- Right: CTA -->
+        <button class="btn-start" onclick="comingSoon()">Start Activity →</button>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="no-activities">
+      <p>🚀 Activities coming soon! Check back in a moment.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", "Nunito", "Inter", system-ui, sans-serif;
+  background: #FDFAF5;
+}
+
+.activities-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.back-btn {
+  color: #4CAF50;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 300ms ease;
+}
+
+.back-btn:hover {
+  color: #45a049;
+}
+
+.header h1 {
+  color: #1A365D;
+  font-size: 24px;
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Area Info Banner */
+.area-info-banner {
+  border-radius: 16px;
+  padding: 25px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.banner-content {
+  flex: 1;
+  color: #1A365D;
+}
+
+.area-info-banner h2 {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.area-info-banner p {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.type-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1A365D;
+}
+
+.banner-emoji {
+  font-size: 64px;
+  opacity: 0.85;
+}
+
+/* Activities List */
+.activities-list h3 {
+  color: #1A365D;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.activity-card {
+  background: white;
+  border: 1px solid #E0E0E0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: all 300ms ease;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.activity-card:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
+}
+
+/* Activity Icon */
+.activity-icon {
+  font-size: 48px;
+  min-width: 60px;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Activity Content */
+.activity-content {
+  flex: 1;
+}
+
+.activity-card h4 {
+  color: #1A365D;
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.short-desc {
+  color: #666;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+}
+
+.activity-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.duration {
+  color: #8B8B8B;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.why-it-helps {
+  background: #F0F8F4;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.why-it-helps strong {
+  color: #2E7D32;
+}
+
+.materials,
+.how-to {
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.materials strong,
+.how-to strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #1A365D;
+  font-size: 13px;
+}
+
+.materials ul,
+.how-to ol {
+  margin-left: 20px;
+  line-height: 1.6;
+  color: #555;
+}
+
+.materials li,
+.how-to li {
+  margin-bottom: 4px;
+}
+
+.safety {
+  background: #FFF3CD;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #664D03;
+  margin: 12px 0;
+  line-height: 1.5;
+}
+
+.reflection {
+  background: #E3F2FD;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #1565C0;
+  margin-top: 12px;
+}
+
+.reflection strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* CTA Button */
+.btn-start {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 300ms ease;
+  min-width: 120px;
+  align-self: center;
+}
+
+.btn-start:hover {

@@ -1,0 +1,86 @@
+# Replit Prompt: Transform Your Parenting Journey - Challenges Section
+
+## Context
+We're redesigning the "Transform Your Parenting Journey" challenges section on a parenting app landing page. The current design displays multiple challenge cards but needs optimization for layout, spacing, and card uniformity.
+
+## Design Changes Required
+
+### 1. CTA Button Repositioning
+- Move the "Challenges Now Live" pink pill-shaped CTA button to the top-right corner of the section
+- Keep its pink color (#FF1493 or similar) and circular pill design
+- Position it above the section title using absolute or flex positioning
+
+### 2. Challenge Card Structure (4 Total)
+Update to display exactly 4 challenge cards in a single row (or responsive grid):
+- **30-Day Challenge**: "30-Day Connection Spark"
+  - Icon: Star/sparkle icon (orange)
+  - Tagline: "Ignite Daily Joy & Wonder"
+  - Description: Brief text about transforming ordinary moments into memories
+
+- **90-Day Challenge**: "90-Day Heart-to-Heart Habit"
+  - Icon: Heart icon (red/pink)
+  - Tagline: "Transform Moments Into Rituals"
+  - Description: Brief text about turning connection into daily superpower
+
+- **180-Day Challenge**: "180-Day Journey"
+  - Icon: Rainbow/growth icon (multicolor)
+  - Tagline: "Build Lifetime Connection"
+  - Description: Brief text about deep, sustained growth
+
+- **365-Day Challenge**: "Year-Round Growth"
+  - Icon: Calendar/cycle icon (gold)
+  - Tagline: "Transform Your Parenting Forever"
+  - Description: Brief text about full-year transformation
+
+### 3. Uniform Card Size
+- Make all 4 cards the exact same height and width
+- Set fixed dimensions (recommend: ~280px width x ~360px height, adjust as needed)
+- Ensure icon areas are consistent in size and positioning
+- Align "View Challenge" buttons at the bottom with consistent padding
+
+### 4. Reduce Whitespace
+- Reduce the gap/margin between the previous section and the "Transform Your Parenting Journey" section
+- Current spacing appears to be ~60-80px; reduce to ~30-40px
+- Maintain visual hierarchy while improving visual flow
+
+### 5. Responsive Design
+- Desktop: Show all 4 cards in one row
+- Tablet: Show 2 cards per row
+- Mobile: Stack cards vertically (1 per row)
+- Use CSS Grid or Flexbox with appropriate gap values
+
+## HTML Structure to Implement
+```
+Section Container
+├── Header Container (Flex between title and CTA)
+│   ├── Title & Description (left)
+│   └── "Challenges Now Live" CTA (right)
+├── Cards Grid Container
+│   ├── Card 1 (30-Day)
+│   ├── Card 2 (90-Day)
+│   ├── Card 3 (180-Day)
+│   └── Card 4 (365-Day)
+```
+
+## CSS Specifications
+- Card Grid: `display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;`
+- Card Height: Fixed (no auto-grow)
+- Section Gap: Reduce from current to ~32px
+- Cards should have consistent shadows, border-radius, and padding
+- Icon areas: Fixed 80px x 80px containers
+- Button area: Fixed height to align all buttons
+
+## Color Palette
+- CTA Button: Hot pink (#FF1493 or #E91E63)
+- 30-Day Icon: Orange (#FFA500)
+- 90-Day Icon: Red/Pink (#FF6B9D)
+- 180-Day Icon: Rainbow gradient
+- 365-Day Icon: Gold (#FFB800)
+- Card Background: White (#FFFFFF)
+- Card Spacing: Beige/cream background (#F5F1E8)
+
+## Notes
+- Maintain all existing descriptions and content
+- Keep the "View Challenge" button styling (green)
+- Ensure button text includes arrow (→)
+- Test on all screen sizes before deployment

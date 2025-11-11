@@ -1,0 +1,792 @@
+# NURTURA TIMER & TASK COMPLETION
+
+Add timer functionality and track completed tasks:
+
+1. **Timer Screen** - When user clicks "Start Activity"
+   - Full-screen timer (countdown from activity duration)
+   - Pause/Resume buttons
+   - "Activity Complete" button to mark as done
+
+2. **Completion Tracking** - Store which tasks are completed
+   - Save to database when parent marks task complete
+   - Show checkmark/badge on task list
+   - Show "Completed Today" status
+
+3. **Task List Update** - Show completion status
+   - Completed tasks show green checkmark or "✓ Completed Today"
+   - Visual indicator (different styling)
+   - Count of completed tasks
+
+---
+
+## 🔧 STEP 1: Update Database Schema
+
+### Add this table to track completed tasks:
+
+```sql
+CREATE TABLE task_completions (
+  id INTEGER PRIMARY KEY,
+  baby_id INTEGER,
+  activity_id INTEGER,
+  area_id INTEGER,
+  completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (baby_id) REFERENCES babies(id),
+  FOREIGN KEY (activity_id) REFERENCES area_activities(id),
+  FOREIGN KEY (area_id) REFERENCES development_areas(id)
+);
+```
+
+---
+
+## 🔧 STEP 2: Create Helper Functions
+
+### Add these functions to `app.py`:
+
+```python
+def mark_task_complete(baby_id, activity_id, area_id):
+    """
+    Mark a task as completed by parent.
+    Store completion time in database.
+    """
+    db.execute(
+        '''INSERT INTO task_completions (baby_id, activity_id, area_id, completed_at)
+           VALUES (?, ?, ?, datetime('now'))''',
+        (baby_id, activity_id, area_id)
+    )
+    db.commit()
+    print(f"✓ Task completed: activity_id={activity_id}")
+
+
+def is_task_completed_today(baby_id, activity_id):
+    """
+    Check if a task has been completed today by this baby.
+    Returns True if completed today, False otherwise.
+    """
+    result = db.execute(
+        '''SELECT COUNT(*) as count FROM task_completions 
+           WHERE baby_id = ? AND activity_id = ? 
+           AND DATE(completed_at) = DATE('now')''',
+        (baby_id, activity_id)
+    ).fetchone()
+    
+    return result['count'] > 0 if result else False
+
+
+def get_completed_tasks_count_today(baby_id):
+    """
+    Get count of tasks completed TODAY by this baby.
+    """
+    result = db.execute(
+        '''SELECT COUNT(*) as count FROM task_completions 
+           WHERE baby_id = ? AND DATE(completed_at) = DATE('now')''',
+        (baby_id,)
+    ).fetchone()
+    
+    return result['count'] if result else 0
+
+
+def get_baby_for_activity(activity_id):
+    """
+    Get baby_id for a given activity.
+    Helper function to find parent context.
+    """
+    activity = db.execute(
+        'SELECT area_id FROM area_activities WHERE id = ?',
+        (activity_id,)
+    ).fetchone()
+    
+    if activity:
+        area = db.execute(
+            'SELECT baby_id FROM development_areas WHERE id = ?',
+            (activity['area_id'],)
+        ).fetchone()
+        return area['baby_id'] if area else None
+    
+    return None
+```
+
+---
+
+## 🔧 STEP 3: Update Task Detail Route
+
+### Find this in `app.py`:
+
+```python
+@app.route('/activity/<int:activity_id>')
+@login_required
+def view_activity_detail(activity_id):
+```
+
+### Replace with this version:
+
+```python
+@app.route('/activity/<int:activity_id>')
+@login_required
+def view_activity_detail(activity_id):
+    """
+    Show full task detail page with timer functionality.
+    """
+    activity = db.execute(
+        'SELECT * FROM area_activities WHERE id = ?',
+        (activity_id,)
+    ).fetchone()
+    
+    if not activity:
+        return redirect('/home')
+    
+    # Get the area info for header
+    area = db.execute(
+        'SELECT * FROM development_areas WHERE id = ?',
+        (activity['area_id'],)
+    ).fetchone()
+    
+    # Get baby context for completion tracking
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    
+    # Check if this task is completed today
+    completed_today = is_task_completed_today(baby.id, activity_id)
+    
+    # Parse JSON fields
+    materials = json.loads(activity['materials']) if activity['materials'] else []
+    steps = json.loads(activity['how_to']) if activity['how_to'] else []
+    
+    return render_template('task_detail.html', 
+                         activity=activity, 
+                         area=area,
+                         baby=baby,
+                         materials=materials,
+                         steps=steps,
+                         completed_today=completed_today)
+```
+
+---
+
+## 🔧 STEP 4: Add Timer Routes
+
+### Add these new routes to `app.py`:
+
+```python
+@app.route('/timer/<int:activity_id>')
+@login_required
+def start_timer(activity_id):
+    """
+    Show timer screen for activity.
+    """
+    activity = db.execute(
+        'SELECT * FROM area_activities WHERE id = ?',
+        (activity_id,)
+    ).fetchone()
+    
+    if not activity:
+        return redirect('/home')
+    
+    area = db.execute(
+        'SELECT * FROM development_areas WHERE id = ?',
+        (activity['area_id'],)
+    ).fetchone()
+    
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    
+    duration_seconds = activity['duration_min'] * 60
+    
+    return render_template('timer.html',
+                         activity=activity,
+                         area=area,
+                         baby=baby,
+                         duration_seconds=duration_seconds,
+                         duration_minutes=activity['duration_min'])
+
+
+@app.route('/api/mark-task-complete/<int:activity_id>', methods=['POST'])
+@login_required
+def api_mark_task_complete(activity_id):
+    """
+    API endpoint to mark task as completed.
+    Called when parent finishes timer.
+    """
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    
+    activity = db.execute(
+        'SELECT area_id FROM area_activities WHERE id = ?',
+        (activity_id,)
+    ).fetchone()
+    
+    if not activity or not baby:
+        return jsonify({'status': 'error', 'message': 'Not found'}), 404
+    
+    # Mark task as complete
+    mark_task_complete(baby.id, activity_id, activity['area_id'])
+    
+    # Get updated completion count
+    completed_count = get_completed_tasks_count_today(baby.id)
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Task marked as complete!',
+        'completed_today': completed_count
+    })
+```
+
+---
+
+## 🔧 STEP 5: Update Task List Template
+
+### In `templates/tasks_list.html`, update the task card section:
+
+**Find:**
+```html
+<!-- Tasks List (Minimal, Scannable) -->
+<div class="tasks-list" id="tasksList">
+  {% if activities %}
+    {% for activity in activities %}
+    <div class="task-card" onclick="viewTaskDetail({{ activity.id }})">
+      <!-- Task Icon -->
+      <div class="task-icon">{{ activity.activity_icon }}</div>
+      
+      <!-- Task Info -->
+      <div class="task-info">
+        <h4>{{ activity.activity_title }}</h4>
+        <p class="task-description">{{ activity.short_description }}</p>
+        <div class="task-meta">
+          <span class="duration">⏱️ {{ activity.duration_min }} min</span>
+        </div>
+      </div>
+      
+      <!-- Arrow (CTA) -->
+      <div class="task-arrow">→</div>
+    </div>
+    {% endfor %}
+```
+
+**Replace with:**
+```html
+<!-- Tasks List (Minimal, Scannable) -->
+<div class="tasks-list" id="tasksList">
+  {% if activities %}
+    {% for activity in activities %}
+    <div class="task-card {% if completed_tasks and activity.id in completed_tasks %}completed{% endif %}" onclick="viewTaskDetail({{ activity.id }})">
+      <!-- Task Icon -->
+      <div class="task-icon">{{ activity.activity_icon }}</div>
+      
+      <!-- Task Info -->
+      <div class="task-info">
+        <h4>{{ activity.activity_title }}</h4>
+        <p class="task-description">{{ activity.short_description }}</p>
+        <div class="task-meta">
+          <span class="duration">⏱️ {{ activity.duration_min }} min</span>
+          {% if completed_tasks and activity.id in completed_tasks %}
+          <span class="completed-badge">✓ Done Today</span>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Arrow or Checkmark (CTA) -->
+      <div class="task-arrow">
+        {% if completed_tasks and activity.id in completed_tasks %}
+        ✓
+        {% else %}
+        →
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+```
+
+---
+
+## 🔧 STEP 6: Update Task Detail Template
+
+### In `templates/task_detail.html`, find:
+
+```html
+<!-- Start Activity Button -->
+<div class="action-section">
+  <button class="btn-start" onclick="comingSoon()">
+    Start Activity →
+  </button>
+  <p class="coming-soon-text">Timer feature coming soon!</p>
+</div>
+```
+
+### Replace with:
+
+```html
+<!-- Start Activity Button or Completed Badge -->
+<div class="action-section">
+  {% if completed_today %}
+  <div class="completed-message">
+    <h4>✓ Completed Today!</h4>
+    <p>Great job! You already did this activity today. Feel free to do it again if you'd like! 💕</p>
+    <button class="btn-start" onclick="startTimer({{ activity.id }})">
+      Do It Again →
+    </button>
+  </div>
+  {% else %}
+  <button class="btn-start" onclick="startTimer({{ activity.id }})">
+    ▶ Start Activity
+  </button>
+  {% endif %}
+</div>
+```
+
+---
+
+## 🔧 STEP 7: Create Timer Template
+
+### Create NEW file: `templates/timer.html`
+
+```html
+<div class="timer-container">
+  <!-- Minimal Header -->
+  <div class="timer-header">
+    <a href="/activity/{{ activity.id }}" class="close-btn">✕</a>
+  </div>
+  
+  <!-- Activity Title -->
+  <div class="timer-info">
+    <div class="activity-emoji">{{ activity.activity_icon }}</div>
+    <h1>{{ activity.activity_title }}</h1>
+    <p>Cuddle time with {{ baby.baby_name }} 💕</p>
+  </div>
+  
+  <!-- Timer Display -->
+  <div class="timer-display">
+    <div class="timer-text" id="timerDisplay">{{ duration_minutes }}:00</div>
+  </div>
+  
+  <!-- Activity Instructions (Scrollable) -->
+  <div class="timer-instructions">
+    <h3>What to do:</h3>
+    <p>{{ activity.short_description }}</p>
+  </div>
+  
+  <!-- Controls -->
+  <div class="timer-controls">
+    <button class="btn-control pause-resume" onclick="toggleTimer()" id="pauseResumeBtn">
+      ⏸ Pause
+    </button>
+  </div>
+  
+  <!-- Complete Button (Shows when timer ends) -->
+  <div class="timer-complete-section" id="completeSection" style="display: none;">
+    <button class="btn-complete" onclick="completeTask({{ activity.id }})">
+      ✓ Mark as Complete
+    </button>
+    <p class="complete-text">Great job! Mark this activity as complete. 🎉</p>
+  </div>
+</div>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", "Nunito", "Inter", system-ui, sans-serif;
+  background: linear-gradient(135deg, #D4F1E4, #D6E8F7);
+  min-height: 100vh;
+}
+
+.timer-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: linear-gradient(135deg, #D4F1E4, #D6E8F7);
+}
+
+/* Header */
+.timer-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.close-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  text-decoration: none;
+  color: #666;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.close-btn:hover {
+  background: white;
+  color: #333;
+}
+
+/* Activity Info */
+.timer-info {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.activity-emoji {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+
+.timer-info h1 {
+  color: #1A365D;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.timer-info p {
+  color: #555;
+  font-size: 14px;
+}
+
+/* Timer Display */
+.timer-display {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.timer-text {
+  font-size: 80px;
+  font-weight: 700;
+  color: #1A365D;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Instructions */
+.timer-instructions {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.timer-instructions h3 {
+  color: #1A365D;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.timer-instructions p {
+  color: #555;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Controls */
+.timer-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.btn-control {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.pause-resume {
+  background: white;
+  color: #1A365D;
+  border: 2px solid #1A365D;
+}
+
+.pause-resume:hover {
+  background: #f5f5f5;
+}
+
+.pause-resume.paused {
+  background: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+}
+
+/* Complete Section */
+.timer-complete-section {
+  text-align: center;
+}
+
+.btn-complete {
+  width: 100%;
+  padding: 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 300ms ease;
+  margin-bottom: 8px;
+}
+
+.btn-complete:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
+}
+
+.complete-text {
+  color: #555;
+  font-size: 12px;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .timer-text {
+    font-size: 60px;
+  }
+  
+  .timer-info h1 {
+    font-size: 20px;
+  }
+}
+</style>
+
+<script>
+let timerInterval = null;
+let timeRemaining = {{ duration_seconds }};
+const totalDuration = {{ duration_seconds }};
+let isRunning = true;
+
+function updateTimerDisplay() {
+  const minutes = Math.floor(timeRemaining / 60);
+  const seconds = timeRemaining % 60;
+  document.getElementById('timerDisplay').innerText = 
+    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function startTimer() {
+  if (isRunning) return;
+  
+  isRunning = true;
+  document.getElementById('pauseResumeBtn').innerText = '⏸ Pause';
+  document.getElementById('pauseResumeBtn').classList.remove('paused');
+  
+  timerInterval = setInterval(() => {
+    timeRemaining--;
+    updateTimerDisplay();
+    
+    if (timeRemaining <= 0) {
+      clearInterval(timerInterval);
+      isRunning = false;
+      document.getElementById('pauseResumeBtn').style.display = 'none';
+      document.getElementById('completeSection').style.display = 'block';
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  clearInterval(timerInterval);
+  isRunning = false;
+  document.getElementById('pauseResumeBtn').innerText = '▶ Resume';
+  document.getElementById('pauseResumeBtn').classList.add('paused');
+}
+
+function toggleTimer() {
+  if (isRunning) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function completeTask(activityId) {
+  // Mark task as complete via API
+  fetch(`/api/mark-task-complete/${activityId}`, {
+    method: 'POST'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === 'success') {
+      // Show success message
+      alert('🎉 Amazing! Task completed! You\'re an awesome parent! 💪');
+      // Redirect back to tasks list
+      window.location.href = '/activities/{{ area.id }}';
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error marking task complete');
+  });
+}
+
+// Start timer on page load
+document.addEventListener('DOMContentLoaded', function() {
+  updateTimerDisplay();
+  startTimer();
+});
+</script>
+```
+
+---
+
+## 🔧 STEP 8: Update Tasks List Route
+
+### Find this in `app.py`:
+
+```python
+@app.route('/activities/<int:area_id>')
+@login_required
+def view_activities(area_id):
+```
+
+### Add this code before rendering template:
+
+```python
+    # Get completed tasks for today
+    baby = get_baby_by_user(user_id)
+    
+    completed_tasks_result = db.execute(
+        '''SELECT activity_id FROM task_completions 
+           WHERE baby_id = ? AND DATE(completed_at) = DATE('now')''',
+        (baby.id,)
+    ).fetchall()
+    
+    completed_tasks = [row['activity_id'] for row in completed_tasks_result]
+    completed_count = len(completed_tasks)
+    
+    return render_template('tasks_list.html', 
+                         area=area, 
+                         activities=all_activities,
+                         completed_tasks=completed_tasks,
+                         completed_count=completed_count)
+```
+
+---
+
+## 🔧 STEP 9: Add CSS for Completed Tasks
+
+### In `templates/tasks_list.html` `<style>`, add:
+
+```css
+/* Completed Task Styling */
+.task-card.completed {
+  opacity: 0.7;
+  background: #F0F8F4;
+  border-color: #4CAF50;
+}
+
+.task-card.completed .task-info h4 {
+  color: #4CAF50;
+  text-decoration: line-through;
+}
+
+.completed-badge {
+  display: inline-block;
+  background: #4CAF50;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.task-card.completed .task-arrow {
+  color: #4CAF50;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.completed-message {
+  background: #F0F8F4;
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+  border: 2px solid #4CAF50;
+}
+
+.completed-message h4 {
+  color: #4CAF50;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.completed-message p {
+  color: #555;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+```
+
+---
+
+## ✅ IMPLEMENTATION CHECKLIST
+
+- [ ] Add `task_completions` table to database
+- [ ] Add helper functions to `app.py`
+- [ ] Add `/timer/<activity_id>` route
+- [ ] Add `/api/mark-task-complete/<activity_id>` API route
+- [ ] Update task detail route with completion check
+- [ ] Update `tasks_list.html` to show completion status
+- [ ] Update `task_detail.html` with timer button
+- [ ] Create `timer.html` template
+- [ ] Update tasks list route with completed tasks data
+- [ ] Add CSS for completed task styling
+- [ ] Test: Complete a task → verify checkmark on list
+- [ ] Test: Refresh page → completed status persists
+- [ ] Test: Timer counts down and shows complete button
+- [ ] Deploy to Replit
+
+---
+
+## 🎯 USER FLOW
+
+**Task List Page:**
+```
+Task 1: ✓ Done Today  ← Shows checkmark
+Task 2: →              ← Not done
+Task 3: ✓ Done Today  ← Shows checkmark
+```
+
+**Click Incomplete Task:**
+```
+→ Timer Page
+→ Timer counts down from activity duration
+→ "Mark as Complete" button appears
+→ Click it → Redirects to task list
+→ Task now shows "✓ Done Today"
+```
+
+**Click Completed Task:**
+```
+→ Task Detail Page shows "✓ Completed Today!"
+→ Button says "Do It Again →"
+→ User can redo the same activity
+```
+
+---
+
+## 🚀 READY?
+
+Paste this entire prompt into Replit AI and it will:
+1. Add timer functionality with countdown
+2. Track completed tasks in database
+3. Show completion status on task list
+4. Display checkmark for completed tasks
+5. Allow redoing completed tasks
+
+Full task completion workflow! ✓

@@ -1,0 +1,144 @@
+You are a senior full-stack engineer and UX designer building the entry flow and home screen for Nurtura, an AI parenting app built on React + TailwindCSS with Supabase for basic user tracking.
+
+🎯 GOAL
+
+Build a mobile-first parent entry screen that:
+
+Collects only mobile number OR email ID to identify the parent (no OTP needed yet).
+
+Displays trust copy like “Trusted by thousands of parents.”
+
+On successful entry, redirects to the child setup screen, where parent adds baby name and selects baby’s age group (from a predefined list).
+
+After onboarding, shows a Home page with “Add New Baby” button at top-right.
+
+⚙️ TECH REQUIREMENTS
+
+Framework: React + TailwindCSS
+
+Backend: Supabase
+
+Data: store parent’s identifier (mobile/email) and baby’s data in Supabase.
+
+Use @supabase/supabase-js client:
+
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+export default supabase;
+
+
+Save data to two tables:
+
+parents → { id, contact_info }
+
+babies → { id, parent_id, name, age_group }
+
+🧭 FLOW STRUCTURE
+1️⃣ EntryScreen.jsx – Parent Identifier Screen
+Headline: “Welcome to Nurtura 🌿”
+Subheadline: “Join thousands of parents nurturing their little ones with love and science.”
+
+[ 📱 Enter mobile number or email ]
+
+[ ❤️ Continue ]
+
+Footer: “Trusted by thousands of parents across India 💕”
+
+
+Design:
+
+Full-screen gradient background (from-pink-50 via-mint-50 to-lavender-50).
+
+Center-aligned layout, flex flex-col justify-between h-screen p-6.
+
+Rounded input field (h-12 text-lg rounded-2xl border-gray-300).
+
+CTA: bg-gradient-to-r from-pink-300 to-emerald-300 rounded-full py-3 text-lg font-semibold shadow-md.
+
+Micro-animation on submit: button turns to “Saving...”
+
+Store parent info in Supabase → redirect to BabySetup screen.
+
+2️⃣ BabySetup.jsx – Add Baby Details
+Headline: “Hi there, wonderful parent 💕”
+Subheadline: “Let’s get to know your little one 🌸”
+
+👶 Baby’s name:
+[ Enter name ]
+
+🎂 Baby’s age group:
+[ ▼ Select age group ]
+    - 0–3 months (Newborn Nurture)
+    - 3–6 months (Curious Explorer)
+    - 6–12 months (Little Discoverer)
+    - 2–3 years (Tiny Talker)
+    - 3–4 years (Playful Learner)
+    - 4–6 years (Confident Creator)
+
+[ 🌿 Start the Journey ]
+
+Footer: “Every small moment you nurture today shapes a beautiful tomorrow 💫”
+
+
+Design:
+
+Mobile card-style form with rounded corners (rounded-2xl shadow-lg bg-white p-6).
+
+Dropdowns have large tap targets.
+
+Validation: require both fields.
+
+On submit → insert { parent_id, name, age_group } in Supabase → navigate to Home.
+
+3️⃣ Home.jsx – Parent Dashboard
+Header: “Welcome back to Nurtura 🌿”
+Subheader: “Select your baby to continue”
+
+[ Baby Card ]  (shows name + age group)
+[ Baby Card ]  (if multiple babies)
+
+[ + Add New Baby ]  ← Button top-right corner
+
+
+Design:
+
+Clean mobile layout (p-4 flex flex-col gap-4).
+
+Baby cards: rounded pastel tiles (bg-pink-50 shadow-sm p-4 rounded-xl text-gray-700).
+
+“Add New Baby” button → top-right floating button (absolute top-4 right-4 bg-gradient-to-r from-rose-300 to-pink-400 text-white px-4 py-2 rounded-full shadow-md).
+
+Clicking “Add New Baby” navigates back to BabySetup.jsx.
+
+🎨 STYLE SYSTEM
+
+Color palette:
+
+Backgrounds: pink-50, mint-50, lavender-50
+
+Buttons: gradient from-pink-300 to-emerald-300
+
+Text: gray-700, headers gray-900
+
+Font: Poppins or Nunito, font-medium
+
+All layouts mobile-first (max-w-sm mx-auto, p-6)
+
+Spacing optimized for thumb use (pb-8 safe-area-bottom)
+
+Animations: soft fades and slides via Framer Motion
+
+🚀 OUTPUT EXPECTATIONS
+
+Screen 1: Collects parent contact (email/phone) and saves to Supabase.
+
+Screen 2: Collects baby name and age group from provided list.
+
+Screen 3: Displays baby cards + “Add New Baby” at top-right.
+
+Fully mobile-first UI, short emotional copy, calming color scheme.
+
+Responsive up to tablet size but optimized for 390–430px width.
+
+Please output all React components, Tailwind styling, and Supabase logic for this flow in one go.
+The final experience should feel simple, trustworthy, and emotionally soothing — every line and color should make parents feel they’re in caring hands. 💕

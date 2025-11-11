@@ -1,0 +1,871 @@
+---
+
+## 🎉 ACTIVITY COMPLETION FLOW
+
+### New Page: `/src/components/ActivityCompletionScreen.jsx`
+
+```jsx
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
+export default function ActivityCompletionScreen() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { activity, baby } = location.state || {};
+
+  useEffect(() => {
+    // Auto-redirect after 4 seconds
+    const timer = setTimeout(() => {
+      // Store activity data for home page display
+      localStorage.setItem(
+        'nurtura_activity_completed',
+        JSON.stringify(activity)
+      );
+      navigate('/home');
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [navigate, activity]);
+
+  if (!activity || !baby) {
+    navigate('/home');
+    return null;
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-b from-mint-50 via-pink-50 to-blue-50 flex flex-col items-center justify-center p-6"
+    >
+      {/* Confetti Animation */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {[...Array(50)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{
+              opacity: 1,
+              y: -10,
+              x: Math.random() * 400 - 200,
+            }}
+            animate={{
+              opacity: 0,
+              y: window.innerHeight + 100,
+              rotate: Math.random() * 360,
+            }}
+            transition={{
+              duration: 2.5 + Math.random() * 0.5,
+              delay: Math.random() * 0.3,
+            }}
+            className="absolute w-2 h-2 bg-pink-400 rounded-full"
+            style={{
+              left: '50%',
+              top: '50%',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Content */}
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="text-center max-w-md z-10 space-y-6"
+      >
+        {/* Celebration Emoji */}
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 1, delay: 0.3, repeat: Infinity }}
+          className="text-6xl"
+        >
+          🎉
+        </motion.div>
+
+        {/* Main Message */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="space-y-3"
+        >
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            You did it! 🌸
+          </h1>
+          <p className="text-lg text-gray-800">
+            That was {activity.duration} of meaningful growth 💕
+          </p>
+        </motion.div>
+
+        {/* Value Realization */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="bg-white rounded-2xl p-5 space-y-3 shadow-md"
+        >
+          <p className="text-gray-800 leading-relaxed">
+            ✨ <span className="font-semibold">{baby.name}</span> explored{' '}
+            <span className="text-pink-500 font-semibold">
+              {activity.goal_focus}
+            </span>{' '}
+            today.
+          </p>
+          <p className="text-gray-800 leading-relaxed">
+            🌱 You strengthened their{' '}
+            <span className="text-pink-500 font-semibold">
+              {activity.domain}
+            </span>{' '}
+            skills while sharing joy together.
+          </p>
+        </motion.div>
+
+        {/* Engagement Message */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="text-sm text-gray-600"
+        >
+          Redirecting in a moment... 💕
+        </motion.p>
+      </motion.div>
+    </motion.div>
+  );
+}
+```
+
+### New Component: `ActivityCompletionCard.jsx`
+
+```jsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+
+export default function ActivityCompletionCard({
+  activity,
+  babyName,
+  onContinue,
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full max-w-md mx-auto mb-6 bg-gradient-to-br from-green-50 to-mint-50 rounded-2xl p-5 shadow-md border-2 border-green-200"
+    >
+      {/* Header */}
+      <div className="mb-4">
+        <h3 className="text-lg font-bold text-gray-900 mb-1">
+          💖 You nurtured {activity.goal_focus} today 🌱
+        </h3>
+      </div>
+
+      {/* Value Statement */}
+      <div className="mb-4 p-4 bg-white rounded-xl space-y-2">
+        <p className="text-gray-800 leading-relaxed">
+          <span className="font-semibold">{babyName}</span> discovered{' '}
+          <span className="text-pink-500 font-semibold">
+            {activity.title.toLowerCase()}
+          </span>{' '}
+          and giggles — and you built{' '}
+          <span className="text-pink-500 font-semibold">
+            {activity.domain.toLowerCase()}
+          </span>{' '}
+          + <span className="text-pink-500 font-semibold">joy</span> together 💕
+        </p>
+      </div>
+
+      {/* Activity Summary */}
+      <div className="mb-4 space-y-2">
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <span>✅ Completed:</span>
+          <span className="font-semibold">"{activity.title}"</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <span>🎯 Focus:</span>
+          <span className="font-semibold">{activity.goal_focus}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <span>⏱️</span>
+          <span className="font-semibold">
+            {activity.duration} of meaningful play
+          </span>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => {
+          localStorage.removeItem('nurtura_activity_completed');
+          onContinue();
+        }}
+        className="w-full bg-gradient-to-r from-green-400 to-emerald-500 text-white font-bold py-3 rounded-full shadow-md hover:shadow-lg transition-all"
+      >
+        💫 See Tomorrow's Joy
+      </motion.button>
+    </motion.div>
+  );
+}
+```
+
+### Update Router
+
+```jsx
+import ActivityCompletionScreen from './components/ActivityCompletionScreen';
+
+// In your Routes:
+<Route path="/activity-completion" element={<ActivityCompletionScreen />} />
+```### Integration in Home.jsx
+
+```jsx
+import ActivityOfTheDayCard from './ActivityOfTheDayCard';
+import ActivityCompletionCard from './ActivityCompletionCard';
+import { useState, useEffect } from 'react';
+
+export default function Home() {
+  const baby = getBabyFromContext(); // Your existing logic
+  const [completedActivity, setCompletedActivity] = useState(null);
+
+  useEffect(() => {
+    // Check if activity was just completed
+    const completed = localStorage.getItem('nurtura_activity_completed');
+    if (completed) {
+      setCompletedActivity(JSON.parse(completed));
+      localStorage.removeItem('nurtura_activity_completed');
+    }
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+      {/* Welcome Greeting */}
+      <div className="hero-greeting">
+        <h1>Welcome back!</h1>
+        <p>Today with {baby.name} ({baby.ageMonths} months) 🌱</p>
+      </div>
+
+      {/* NEW: Show Completion Card OR Activity Card */}
+      {completedActivity ? (
+        <ActivityCompletionCard
+          activity={completedActivity}
+          babyName={baby.name}
+          onContinue={() => setCompletedActivity(null)}
+        />
+      ) : (
+        <ActivityOfTheDayCard
+          babyName={baby.name}
+          ageMonths={baby.ageMonths}
+          developmentGoals={baby.goals}
+        />
+      )}
+
+      {/* Existing: Category Filters & Areas */}
+      <div className="activities-section">
+        <h2>Choose an area to grow together 💕</h2>
+        {/* ... existing filter & area cards ... */}
+      </div>
+    </div>
+  );
+}
+```# NURTURA "ACTIVITY OF THE DAY" FEATURE
+
+You are enhancing Nurtura's homepage with a personalized "Activity of the Day" feature that drives daily engagement and joy. This integrates seamlessly with existing design language, tone, and user experience.
+
+---
+
+## 🎯 GOAL
+
+- Add "Activity of the Day" hero card to homepage (below welcome greeting, above category filters)
+- Generate daily activity via LLM API based on baby age + parent goals
+- Link to detailed activity page with full instructions
+- Track completions for engagement & retention
+- Mobile-first, emotionally warm, consistent with Nurtura's existing aesthetic
+
+---
+
+## 🎨 DESIGN SYSTEM (From Existing Nurtura)
+
+### Colors
+```
+Primary Pink: #F4D9E8 (blush)
+Sky Blue: #D6E8F7
+Mint Green: #D4F1E4
+Warm Cream: #FDFAF5
+
+Text:
+- Headers: #1A365D (dark navy), font-bold
+- Body: #555555 (gray), font-medium
+- Muted: #8B8B8B (light gray), font-regular
+
+Buttons:
+- Primary: gradient from-pink-400 to-rose-400
+- Secondary: from-mint-400 to-green-400
+```
+
+### Typography
+```
+Font: Poppins, Nunito, Inter
+Headers: bold, 20-24px
+Body: medium, 14-16px
+Microcopy: regular, 12-13px
+```
+
+### Spacing & Layout
+```
+Border Radius: rounded-2xl (16px default, rounded-3xl for buttons)
+Padding: p-5, p-6
+Shadows: shadow-md (soft)
+Mobile Width: max-w-sm (448px)
+```
+
+### Animations
+```
+Fade In: opacity 0→1, 400ms
+Slide Up: translateY 16px→0, 400ms
+Button Hover: scale 1.02
+Confetti: celebratory on completion
+```
+
+---
+
+## 📱 HOMEPAGE MODIFICATIONS
+
+### New Component: ActivityOfTheDayCard
+
+**Location:** Below welcome greeting, above "Choose an area to grow together 💕" section
+
+**File:** `/src/components/ActivityOfTheDayCard.jsx`
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import axios from 'axios';
+
+export default function ActivityOfTheDayCard({ babyName, ageMonths, developmentGoals }) {
+  const navigate = useNavigate();
+  const [activity, setActivity] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchActivityOfDay();
+  }, [babyName, ageMonths]);
+
+  const fetchActivityOfDay = async () => {
+    try {
+      const response = await axios.post('/api/activity-of-day', {
+        baby_name: babyName,
+        age_months: ageMonths,
+        development_goals: developmentGoals,
+      });
+      setActivity(response.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch activity:', error);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="w-full max-w-md mx-auto mb-6 h-32 bg-gradient-to-r from-pink-50 to-mint-50 rounded-2xl animate-pulse"
+      />
+    );
+  }
+
+  if (!activity) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      onClick={() => navigate('/activity-of-day', { state: { activity } })}
+      className="w-full max-w-md mx-auto mb-6 bg-gradient-to-br from-pink-50 to-mint-50 rounded-2xl p-5 shadow-md cursor-pointer hover:shadow-lg transition-all"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            🎯 Today's Bonding Activity
+          </h3>
+          <p className="text-xs text-gray-500">
+            {activity.age_range} • ⏱️ {activity.duration}
+          </p>
+        </div>
+      </div>
+
+      {/* Title & Teaser */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
+          {activity.title}
+        </h2>
+        <p className="text-sm text-gray-700 leading-snug">
+          {activity.short_teaser}
+        </p>
+      </div>
+
+      {/* Materials Hint */}
+      <div className="mb-4 p-3 bg-white rounded-xl">
+        <p className="text-xs text-gray-600 font-semibold mb-1">
+          📦 What You'll Need
+        </p>
+        <p className="text-sm text-gray-700">
+          {activity.what_you_need}
+        </p>
+      </div>
+
+      {/* CTA */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate('/activity-of-day', { state: { activity } });
+        }}
+        className="w-full bg-gradient-to-r from-pink-400 to-rose-400 text-white font-bold py-3 rounded-full shadow-md hover:shadow-lg transition-all"
+      >
+        🌸 Start Activity
+      </motion.button>
+
+      {/* Engagement Hint */}
+      <p className="text-center text-xs text-gray-600 mt-3">
+        💖 {activity.engagement_hint}
+      </p>
+    </motion.div>
+  );
+}
+```
+
+### Integration in Home.jsx
+
+```jsx
+import ActivityOfTheDayCard from './ActivityOfTheDayCard';
+
+export default function Home() {
+  const baby = getBabyFromContext(); // Your existing logic
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+      {/* Welcome Greeting */}
+      <div className="hero-greeting">
+        <h1>Welcome back!</h1>
+        <p>Today with {baby.name} ({baby.ageMonths} months) 🌱</p>
+      </div>
+
+      {/* NEW: Activity of the Day */}
+      <ActivityOfTheDayCard
+        babyName={baby.name}
+        ageMonths={baby.ageMonths}
+        developmentGoals={baby.goals}
+      />
+
+      {/* Existing: Category Filters & Areas */}
+      <div className="activities-section">
+        <h2>Choose an area to grow together 💕</h2>
+        {/* ... existing filter & area cards ... */}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 🎯 ACTIVITY DETAIL PAGE
+
+### New Page: `/src/components/ActivityOfDayDetail.jsx`
+
+```jsx
+import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import axios from 'axios';
+
+export default function ActivityOfDayDetail() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activity = location.state?.activity;
+  const [completed, setCompleted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (!activity) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Activity not found</p>
+      </div>
+    );
+  }
+
+  const handleMarkDone = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post('/api/activity-completed', {
+        activity_id: activity.id,
+        completed_at: new Date().toISOString(),
+      });
+      setCompleted(true);
+      
+      // Navigate to completion screen with data
+      setTimeout(() => {
+        navigate('/activity-completion', {
+          state: {
+            activity,
+            baby: { name: localStorage.getItem('nurtura_baby_name') },
+          },
+        });
+      }, 300);
+    } catch (error) {
+      console.error('Failed to mark activity as done:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0 },
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-screen bg-gradient-to-b from-white via-pink-50 to-blue-50 pb-8"
+    >
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 p-5 flex items-center gap-3 sticky top-0 z-10">
+        <button
+          onClick={() => navigate('/home')}
+          className="text-2xl hover:opacity-70 transition"
+        >
+          ←
+        </button>
+        <div className="flex-1">
+          <h1 className="font-bold text-gray-900">Today's Activity</h1>
+        </div>
+        <div className="text-2xl">🌸</div>
+      </div>
+
+      {/* Content */}
+      <motion.div
+        className="max-w-md mx-auto p-6 space-y-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Title Section */}
+        <motion.div variants={itemVariants} className="space-y-2">
+          <h2 className="text-3xl font-bold text-gray-900">
+            {activity.title}
+          </h2>
+          <div className="flex gap-4 text-sm text-gray-600">
+            <span>🎯 {activity.age_range}</span>
+            <span>⏱️ {activity.duration}</span>
+            <span className="text-pink-500 font-semibold">{activity.domain}</span>
+          </div>
+          <p className="text-gray-700 font-medium pt-2">
+            Focus: <span className="text-pink-500">{activity.goal_focus}</span>
+          </p>
+        </motion.div>
+
+        {/* What You'll Need */}
+        <motion.div
+          variants={itemVariants}
+          className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-5 space-y-3"
+        >
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <span>📦</span> What You'll Need
+          </h3>
+          <p className="text-gray-700 leading-relaxed">
+            {activity.what_you_need}
+          </p>
+        </motion.div>
+
+        {/* Steps */}
+        <motion.div
+          variants={itemVariants}
+          className="bg-gradient-to-br from-mint-50 to-blue-50 rounded-2xl p-5 space-y-4"
+        >
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <span>💫</span> Steps
+          </h3>
+          <ol className="space-y-3">
+            {activity.steps.map((step, index) => (
+              <li key={index} className="flex gap-3">
+                <span className="font-bold text-pink-500 min-w-fit">
+                  {index + 1}.
+                </span>
+                <p className="text-gray-700 leading-relaxed">{step}</p>
+              </li>
+            ))}
+          </ol>
+        </motion.div>
+
+        {/* Why It Matters */}
+        <motion.div
+          variants={itemVariants}
+          className="bg-gradient-to-br from-blue-50 to-lavender-50 rounded-2xl p-5 space-y-3"
+        >
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <span>❤️</span> Why It Matters
+          </h3>
+          <p className="text-gray-700 leading-relaxed">
+            {activity.why_it_matters}
+          </p>
+        </motion.div>
+
+        {/* End Moment */}
+        <motion.div
+          variants={itemVariants}
+          className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl p-5 space-y-3"
+        >
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <span>🌸</span> End Moment
+          </h3>
+          <p className="text-gray-700 leading-relaxed">
+            {activity.end_moment}
+          </p>
+        </motion.div>
+
+        {/* CTAs */}
+        <motion.div variants={itemVariants} className="space-y-3 pt-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleMarkDone}
+            disabled={loading || completed}
+            className="w-full bg-gradient-to-r from-green-400 to-emerald-500 text-white font-bold py-3 rounded-full shadow-md hover:shadow-lg transition-all disabled:opacity-70"
+          >
+            {completed ? '✅ Done! Great bonding!' : '✅ Mark as Done'}
+          </motion.button>
+
+          <button
+            onClick={() => navigate('/home')}
+            className="w-full border-2 border-gray-300 text-gray-900 font-bold py-3 rounded-full hover:bg-gray-50 transition-all"
+          >
+            🔄 Try Another
+          </button>
+        </motion.div>
+
+        {/* Engagement Hint */}
+        <motion.p variants={itemVariants} className="text-center text-sm text-gray-600 pt-2">
+          💖 {activity.engagement_hint}
+        </motion.p>
+      </motion.div>
+    </motion.div>
+  );
+}
+```
+```
+
+### Update Router
+
+Add to your routing in `App.jsx`:
+
+```jsx
+import ActivityOfDayDetail from './components/ActivityOfDayDetail';
+
+// In your Routes:
+<Route path="/activity-of-day" element={<ActivityOfDayDetail />} />
+```
+
+---
+
+## 🧠 BACKEND: LLM Activity Generation
+
+### Endpoint: `/api/activity-of-day`
+
+```javascript
+// backend/routes/activityOfDay.js
+const router = express.Router();
+
+router.post('/activity-of-day', async (req, res) => {
+  const { baby_name, age_months, development_goals } = req.body;
+
+  try {
+    // Check if activity already exists for today
+    const existing = await supabase
+      .from('activity_of_day')
+      .select('*')
+      .eq('date', new Date().toISOString().split('T')[0])
+      .eq('baby_id', baby_id)
+      .single();
+
+    if (existing.data) {
+      return res.json(existing.data);
+    }
+
+    // Generate new activity via LLM
+    const activity = await generateActivityViaLLM(
+      baby_name,
+      age_months,
+      development_goals
+    );
+
+    // Save to Supabase
+    await supabase.from('activity_of_day').insert({
+      baby_id,
+      activity_json: activity,
+      date: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+    });
+
+    res.json(activity);
+  } catch (error) {
+    console.error('Error fetching activity of day:', error);
+    res.status(500).json({ error: 'Failed to generate activity' });
+  }
+});
+
+async function generateActivityViaLLM(babyName, ageMonths, goals) {
+  const systemPrompt = `You are an empathetic early-childhood development coach designing joyful bonding activities for Nurtura.
+Generate ONE Activity of the Day for a parent and child. Output ONLY valid JSON, no markdown.`;
+
+  const userPrompt = `
+Child: ${babyName}, ${ageMonths} months old
+Parent goals: ${goals.join(', ')}
+
+Generate a ≤10 minute activity using only household items. Output JSON:
+{
+  "title": "Activity name",
+  "age_range": "X–Y months or years",
+  "duration": "X min",
+  "domain": "Developmental area(s)",
+  "goal_focus": "Focus area",
+  "short_teaser": "One-line engaging teaser",
+  "what_you_need": "Simple materials list",
+  "steps": ["Step 1", "Step 2", ...],
+  "why_it_matters": "Developmental benefit",
+  "end_moment": "How to end joyfully",
+  "emotional_tone": "Tone (e.g., Playful, Calm)",
+  "engagement_hint": "E.g., '1,230 parents played this today 💖'"
+}`;
+
+  const response = await openai.createChatCompletion({
+    model: 'gpt-4',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.7,
+    max_tokens: 800,
+  });
+
+  const activityJson = JSON.parse(response.choices[0].message.content);
+  return activityJson;
+}
+
+router.post('/activity-completed', async (req, res) => {
+  const { activity_id, completed_at } = req.body;
+
+  try {
+    await supabase.from('activity_completions').insert({
+      activity_id,
+      completed_at,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark activity as complete' });
+  }
+});
+
+module.exports = router;
+```
+
+---
+
+## 📊 DATABASE SCHEMA
+
+### Supabase Table: `activity_of_day`
+
+```sql
+CREATE TABLE activity_of_day (
+  id UUID PRIMARY KEY,
+  baby_id UUID REFERENCES babies(id),
+  activity_json JSONB NOT NULL,
+  date DATE NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(baby_id, date)
+);
+
+CREATE TABLE activity_completions (
+  id UUID PRIMARY KEY,
+  activity_id UUID REFERENCES activity_of_day(id),
+  completed_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## ✅ IMPLEMENTATION CHECKLIST
+
+- [ ] Create `ActivityOfTheDayCard.jsx` component
+- [ ] Create `ActivityOfDayDetail.jsx` page
+- [ ] Integrate card into existing `Home.jsx`
+- [ ] Add routing for `/activity-of-day` in `App.jsx`
+- [ ] Create `/api/activity-of-day` endpoint (backend)
+- [ ] Set up LLM API integration (OpenAI or similar)
+- [ ] Create Supabase tables (`activity_of_day`, `activity_completions`)
+- [ ] Test card loading & activity navigation
+- [ ] Test LLM generation with different baby ages/goals
+- [ ] Test "Mark as Done" completion tracking
+- [ ] Add confetti effect on completion (optional: use `react-confetti`)
+- [ ] Test mobile responsiveness (375-430px)
+- [ ] Verify all Nurtura design system consistency
+
+---
+
+## 🎨 MOBILE RESPONSIVE SPECS
+
+| Breakpoint | Width | Spec |
+|------------|-------|------|
+| Mobile | 375-430px | Card width: max-w-md, padding: p-5 |
+| Tablet+ | 768px+ | Card width: still max-w-md, centered |
+
+---
+
+## 💡 TONE & MESSAGING CONSISTENCY
+
+✅ **Warm & Joyful:** "Today's Bonding Activity" (not "Task" or "Exercise")  
+✅ **Emotional hooks:** "💖 engagement_hint" emphasizing community  
+✅ **Empathetic copy:** "Why It Matters" explains developmental benefit  
+✅ **Celebratory:** Confetti + "Great bonding!" on completion  
+✅ **Mobile-first:** Card-based, scrollable, touch-friendly  
+
+---
+
+## 🚀 READY TO BUILD?
+
+This prompt generates:
+- ✅ Activity of the Day hero card on homepage
+- ✅ Detailed activity page with full instructions
+- ✅ LLM-powered daily activity generation
+- ✅ Completion tracking for engagement metrics
+- ✅ Consistent Nurtura design language & tone
+- ✅ Mobile-first, emotionally warm UX
+
+**Paste into Replit now!** 🌿💕

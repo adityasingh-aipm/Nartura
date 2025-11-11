@@ -1,0 +1,625 @@
+# NURTURA MVP - Design-Focused Replit Build Prompt
+
+You are building a **warm, empathetic parenting copilot MVP** inspired by Kinedu, Headspace, and Cocoon.
+
+## PROJECT OVERVIEW
+**App Name:** Nurtura  
+**Mission:** Help busy parents track child development & provide personalized, science-backed bonding activities  
+**Emotional Core:** Science + care. Every interaction should feel like talking to a caring pediatrician/parenting coach  
+**Timeline:** 4-hour MVP with intentional design direction  
+**Tech Stack:** Python Flask + SQLite + HTML/CSS/Tailwind  
+**Deployment:** Replit (auto-deploy)
+
+---
+
+## 🎨 DESIGN SYSTEM (CRITICAL)
+
+### Color Palette (Pastel, Warm, Trustworthy)
+```
+Primary Colors:
+- Soft Blush Pink: #F4D9E8 (warmth, care, feminine-friendly)
+- Sky Blue: #D6E8F7 (trust, calm, safety)
+- Mint Green: #D4F1E4 (growth, development, positive)
+- Warm Cream: #FDFAF5 (background, comfort)
+
+Secondary Colors:
+- Dark Navy: #1A365D (text, headers, authority)
+- Warm Gray: #8B8B8B (muted text, captions)
+- Success Green: #4CAF50 (achievements, checkmarks)
+- Alert Orange: #FF9800 (gentle warnings, needs-support)
+
+Gradients:
+- Soft Pink-to-Blue: linear-gradient(135deg, #F4D9E8, #D6E8F7)
+- Green-to-Blue: linear-gradient(135deg, #D4F1E4, #D6E8F7)
+```
+
+### Typography (Friendly, Trustworthy)
+- **Font Stack:** "Poppins", "Nunito", "Inter", system-ui, sans-serif
+- **Headers:** Poppins Bold, 24px+ (emotional, warm)
+- **Body Text:** Inter Regular, 16px (readable, accessible)
+- **Microcopy:** Nunito, 13px, #8B8B8B (conversational tone)
+- **Line Height:** 1.6 (generous, breathing room)
+
+### Spacing & Layout
+- **Base Unit:** 8px (all spacing in multiples)
+- **Card Padding:** 20px (generous)
+- **Border Radius:** 16px (soft, rounded, baby-friendly)
+- **Drop Shadow:** `0 4px 12px rgba(0,0,0,0.08)` (subtle, not harsh)
+- **Mobile First:** Stacked layouts, 90% width on mobile, centered on desktop
+
+### Iconography & Motion
+- **Icon Style:** Rounded line icons (stroke 2px), 24px base size
+- **Emojis:** Used sparingly, authentic (🌱 for growth, 💕 for bonding, ⭐ for achievement)
+- **Animations:** Smooth ease-in-out, 300-400ms duration
+  - Progress updates: gentle scale + fade
+  - Button hover: subtle lift (2px shadow increase)
+  - Success toast: fade in from top, slide out
+- **No jarring effects:** Keep it calming, not bouncy
+
+---
+
+## ARCHITECTURE
+
+### Database Schema
+```
+TABLE users:
+  - id (Primary Key)
+  - email (String, Unique)
+  - password (String, hashed)
+  - parent_name (String)
+  - avatar_emoji (String, e.g., "👨‍🦱")
+  - created_at (Timestamp)
+
+TABLE babies:
+  - id (Primary Key)
+  - user_id (Foreign Key)
+  - baby_name (String)
+  - date_of_birth (Date)
+  - age_months (Integer)
+  - avatar_emoji (String, e.g., "👶")
+  - development_goals (JSON: ["Physical", "Cognitive", "Linguistic", "Social-Emotional"])
+  - created_at (Timestamp)
+
+TABLE activities:
+  - id (Primary Key)
+  - activity_title (String)
+  - description (Text)
+  - age_range_min (Integer)
+  - age_range_max (Integer)
+  - development_type (String)
+  - duration_minutes (Integer)
+  - icon (String: emoji or icon class)
+  - ai_tip (Text: friendly AI suggestion)
+  - created_at (Timestamp)
+
+TABLE completed_activities:
+  - id (Primary Key)
+  - baby_id (Foreign Key)
+  - activity_id (Foreign Key)
+  - completed_at (Timestamp)
+```
+
+### File Structure
+```
+project/
+├── app.py
+├── database.py
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── signup.html
+│   ├── login.html
+│   ├── onboarding.html
+│   ├── home.html
+│   └── activity.html
+├── static/
+│   ├── style.css (Tailwind + custom design system)
+│   ├── animations.css (motion, transitions)
+│   └── icons.css (rounded line icons)
+└── database.db
+```
+
+---
+
+## FEATURE 1: AUTHENTICATION (Email, Warm & Simple)
+
+### Routes
+- `GET /` - Landing (choice: login or signup)
+- `POST /signup` - Create account, optional parent name + avatar emoji
+- `POST /login` - Authenticate
+- `GET /logout` - Sign out
+
+### Design Details
+
+**Landing Page:**
+```
+Centered card, soft gradient background (pink-to-blue)
+Hero text: "Nurtura"
+Tagline: "Your parenting copilot for ages 0-6"
+Subtext (warm): "Science + Care. Every milestone matters. 💕"
+
+Two buttons (side-by-side on desktop, stacked on mobile):
+- Blue button: "Login"
+- Pink button: "Sign Up"
+
+Optional footer: "Your child's data is always private and safe 🔒"
+```
+
+**Signup Form:**
+- Email input + password + confirm password
+- Optional: Parent name input + emoji avatar picker
+  - Show 8 emoji options: 👨‍🦱 👩 👨 👩‍🦱 etc.
+  - Default: 👤 (generic parent)
+- Copy tone: "Create your Nurtura account. Let's support [baby_name]'s growth together. 🌱"
+- Error messages in soft orange, help text in warm gray
+
+**Login Form:**
+- Email + password
+- Friendly error: "Hmm, that doesn't match. Try again or sign up if you're new here."
+
+---
+
+## FEATURE 2: ONBOARDING (Extended, Warm Storytelling)
+
+### Flow (3-4 screens, Kinedu-style)
+
+**Screen 1: Parent Details**
+```
+"Hi there, parent! Let's get to know each other 👋"
+- Parent name input (optional, pre-filled if from signup)
+- What's your biggest parenting goal? (multi-select, max 2)
+  ☐ Boost my child's confidence
+  ☐ Strengthen our bonding
+  ☐ Track developmental milestones
+  ☐ Get personalized activity ideas
+
+Design: Card with soft shadow, pastel background
+Button: "Next ➜" (blue, generous padding)
+```
+
+**Screen 2: Baby Details**
+```
+"Now, let's meet [Baby]! 👶"
+- Baby name
+- Date of birth (with age display below: "3 months old")
+- Baby avatar emoji picker (cute options)
+  🧒 👧 👦 🍼 🎀 etc.
+
+Copy tone: "This helps us personalize activities based on [Baby]'s development stage."
+```
+
+**Screen 3: Development Goals**
+```
+"What areas of growth matter most to you? (Select at least 1)"
+
+4 large, tappable cards with icons + descriptions:
+
+🧠 Cognitive Development
+   "Problem solving, thinking, learning"
+   
+💚 Social-Emotional Growth
+   "Emotions, connections, empathy"
+   
+💬 Linguistic Development
+   "Speaking, listening, communication"
+   
+🤸 Physical Development
+   "Movement, coordination, motor skills"
+
+Each card highlights on tap, shows checkmark when selected
+Multiple selection allowed
+```
+
+**Screen 4: Success/Ready (Optional)**
+```
+"You're all set! 🎉"
+"[Parent Name], we've personalized activities for [Baby]'s development goals.
+ Let's start with a fun bonding moment now?"
+
+Large green button: "Discover First Activity ➜"
+```
+
+### Onboarding Design
+- Each screen: centered card, 80% width on mobile, 500px max on desktop
+- Progress indicator: Soft dots at bottom (filled = current, outline = remaining)
+- Animations: Fade-in for each screen, smooth transitions between them
+- Tone: Conversational, celebratory, never clinical
+
+---
+
+## FEATURE 3: ACTIVATION - "Cuddle Up Activity" (KEY UX)
+
+### Home Dashboard
+
+```
+Hero Section (gradient background: green-to-blue):
+  👨‍🦱 "Welcome back, [Parent Name]!"
+  Subtitle: "Today with [Baby Name] (3 months old) 🌱"
+
+Main Activity Card (large, centered, soft shadow):
+  [Activity emoji] 16px icon + rounded bg
+  
+  "Today's Bonding Activity"
+  Activity Title: "Singing Time"
+  ⏱️ 10 minutes | 💬 Linguistic Development
+  
+  "Sing nursery rhymes while making eye contact. Babies love rhythm and voice connection!"
+  
+  [Large Pink Button: "Let's Cuddle Up! 💕"]
+
+Optional Below (if space):
+  - Last completed activity badge
+  - Small progress ring (Cognitive 2/2, Social 2/3, etc.)
+  - "Discover More Activities" link
+```
+
+### Activity Detail Page (Post Click)
+
+```
+Back button [<] top-left
+
+Large activity header card:
+[Activity emoji] 48px
+Title: "[Activity Name]"
+Badge: "💬 Linguistic"
+
+Warm, encouraging description:
+"Sing nursery rhymes while making eye contact. 
+Babies love rhythm and the connection to your voice.
+This builds language skills and emotional bonding. 💕"
+
+Section: "Why This Matters"
+"At [age range], babies are developing language recognition and bonding through familiar voices. Singing strengthens both!"
+
+Section: "AI Coach Tip" (soft blue bg):
+"💡 Pro tip: Try this when your baby is calm and alert. Sing slowly and exaggerate your facial expressions!"
+
+Section: "How to Adapt"
+"0-3 months: Use gentle humming
+3-6 months: Add simple songs with repetition
+6-12 months: Let baby vocalise along"
+
+Section: "What Baby Learns"
+✓ Language recognition
+✓ Emotional bonding
+✓ Rhythm & timing
+✓ Parent-child synchrony
+
+[Large Pink Button: "Start 10-Minute Session 🎵"]
+```
+
+### Timer Screen (Full Immersion)
+
+```
+Background: Soft gradient (pink-to-blue, calming)
+Centered content:
+
+💕 "Cuddle Up Time with [Baby Name]! 💕"
+
+[LARGE TIMER: 10:00 MM:SS format, 80px font]
+Subtle animation: gentle pulse on each second
+
+Below timer:
+[Pause button - optional] | [X Close - optional]
+
+Activity Steps (scrollable, soft cards):
+1️⃣ "Get comfortable with your baby"
+2️⃣ "Sing your favorite nursery rhyme slowly"
+3️⃣ "Watch for eye contact and smiles"
+
+Rotating Affirmations (updates every 30 sec, fade in/out):
+"You're doing amazing! 💪"
+"Every moment counts. 🌱"
+"Your baby loves this bonding time. 💕"
+
+Bottom: Small text
+"Enjoy every second. This is precious time. ✨"
+```
+
+### Post-Activity Success Screen
+
+```
+Celebration gradient background (green-to-blue)
+
+Large checkmark icon (animated: scale + bounce)
+🎉
+
+"Amazing! You just bonded with [Baby Name]! 🎉"
+
+"You spent 10 minutes on "Singing Time"
+This supports [Baby]'s Linguistic Development 💬"
+
+Progress update:
+"Linguistic Development: 2/4 milestones unlocked
+Keep going! ✨"
+
+Two buttons:
+[Pink] "Find Another Activity"
+[Blue] "See Full Progress"
+```
+
+---
+
+## PRE-SEEDED ACTIVITIES (15 Sample, Warm Copy)
+
+```
+1. Singing Time (0-6 months, Linguistic) 🎵
+   "Sing nursery rhymes while making eye contact. 
+    Babies love rhythm and the connection to your voice."
+   AI Tip: "Try this when your baby is calm and alert."
+
+2. Peek-a-Boo Magic (6-12 months, Social-Emotional) 👀
+   "Classic peek-a-boo builds trust, joy, and expectation. 
+    Repeat 5 times, celebrate each reveal with animated faces."
+   AI Tip: "Exaggerate your expressions for maximum baby delight!"
+
+3. Tummy Time Giggles (0-6 months, Physical) 🤸
+   "Place baby on tummy. Make funny sounds & faces. 
+    This strengthens neck and shoulder muscles naturally."
+   AI Tip: "Do this when baby is alert and fed."
+
+4. Sensory Touch Time (6-12 months, Physical) ✋
+   "Let baby feel safe textures: soft fabric, wooden spoon, 
+    plastic bottle. Develops touch awareness and curiosity."
+   AI Tip: "Narrate what baby feels: 'That's soft! That's smooth!'"
+
+5. Story Snuggle (12-24 months, Linguistic) 📚
+   "Read colorful board books while pointing to pictures. 
+    Builds vocabulary through warm interaction."
+   AI Tip: "Use different voices for characters. Make it theatrical!"
+
+6. Dance & Sway (12-24 months, Physical) 💃
+   "Put on music, hold baby, sway & clap together. 
+    Builds coordination, joy, and movement awareness."
+   AI Tip: "Try classical, jazz, or upbeat pop—babies love rhythm!"
+
+7. Mirror Play (12-24 months, Social-Emotional) 🪞
+   "Point to baby's nose, ears in mirror. Say 'That's your nose!' 
+    Builds self-awareness and identity."
+   AI Tip: "Play together: touch your nose, then baby's."
+
+8. Problem Solver (18-36 months, Cognitive) 🧩
+   "Hide a toy under a blanket. Encourage baby to find it. 
+    Builds object permanence and persistence."
+   AI Tip: "Make it easy at first, then gradually harder."
+
+9. Emotional Mirroring (24-36 months, Social-Emotional) 🤗
+   "When baby cries/laughs, mirror the emotion: 'You're happy! 
+    I'm happy too!' Builds empathy and emotional literacy."
+   AI Tip: "Validate their emotions: 'That made you sad. That's okay.'"
+
+10. Color Discovery (24-36 months, Cognitive) 🌈
+    "Point around your home: red apple, blue cup, green plant. 
+     Repeat colors often. Builds vocabulary & pattern recognition."
+    AI Tip: "Start with primary colors: red, blue, yellow."
+
+11. Stacking & Knocking (18-36 months, Physical) 🏗️
+    "Let baby stack soft blocks & knock them down. 
+     Builds fine motor skills & cause-effect understanding."
+    AI Tip: "Celebrate each attempt, not just success!"
+
+12. Counting & Touch (24-36 months, Cognitive) 1️⃣
+    "Count fingers, toes, toys: 'One, two, three!' Point to each. 
+     Builds number awareness naturally."
+    AI Tip: "Do this during diaper changes or mealtimes."
+
+13. Sound Exploration (6-12 months, Linguistic) 🔔
+    "Give baby safe noisemakers: rattles, spoons on pots, bells. 
+     Encourage sound-making. Builds cause-effect & auditory skills."
+    AI Tip: "Narrate: 'You made that sound! Again?'"
+
+14. Ball Rolling (12-24 months, Physical) ⚽
+    "Roll a soft ball back and forth. Baby rolls it back (or tries!). 
+     Builds coordination, turn-taking, anticipation."
+    AI Tip: "Celebrate effort, not accuracy!"
+
+15. Nature Walk Wonder (24-36 months, Cognitive) 🌳
+    "Take a slow walk outside. Point to trees, birds, flowers. 
+     Name what you see. Builds vocabulary & sensory awareness."
+    AI Tip: "Go slowly. Let baby touch safe leaves, flowers."
+```
+
+---
+
+## UI/UX COMPONENTS
+
+### Card Component
+```css
+.card {
+  background: #FDFAF5;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: all 300ms ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
+```
+
+### Button Component
+```css
+.btn-primary {
+  background: linear-gradient(135deg, #D6E8F7, #4CAF50);
+  color: white;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(76, 175, 80, 0.3);
+}
+
+.btn-secondary {
+  background: #F4D9E8;
+  color: #1A365D;
+  /* same structure */
+}
+```
+
+### Progress Ring Component
+```
+Visual: Circular progress indicator
+- Outer ring: Light gray (#E0E0E0)
+- Inner ring: Gradient (mint green to sky blue)
+- Center text: "2/3" or "On Track"
+- Animation: Smooth fill on completion
+
+Example: "Cognitive: 2/2 ✅" or "Social: 2/3 🌱"
+```
+
+### Toast/Success Message
+```
+Position: Top center, 20px from top
+Style: Soft gradient bg, white text, rounded 12px
+Animation: Fade in + slide down (200ms), auto-dismiss after 3 sec
+Example: "✅ Activity completed! You're an amazing parent! 💪"
+```
+
+---
+
+## MOBILE-FIRST RESPONSIVE DESIGN
+
+- **Base Width:** 375px (iPhone SE)
+- **Touch Targets:** 48px minimum (tap-friendly)
+- **Font Size:** 16px minimum (accessibility)
+- **Spacing:** 16px-20px margins, 12px padding for mobile
+- **Stacked Layout:** All cards/buttons stack vertically on mobile
+- **Landscape:** Auto-hide some elements or use horizontal scroll
+
+Test on:
+- iPhone SE (375px)
+- iPhone 12 (390px)
+- iPad (768px, side-by-side cards)
+
+---
+
+## QUALITY CHECKLIST
+
+✅ **MUST HAVE:**
+- No console errors
+- Signup/login works, sessions persist
+- Onboarding saves all details correctly
+- Home dashboard shows correct baby info
+- Activity displays based on age/goals
+- Timer counts down 10 minutes
+- Activity saves to DB as completed
+- All pages responsive on 375px width
+- Warm, inviting color palette throughout
+- Friendly copy tone (no corporate language)
+
+✅ **SHOULD HAVE (If time):**
+- Progress rings on home (visual milestones)
+- Success toast after activity completion
+- Soft animations (fade, slide, scale)
+- AI Coach tip on activity detail
+- Emoji avatar display for parent & baby
+- Warm microcopy throughout (e.g., "Gathering little moments of growth…")
+
+❌ **OUT OF SCOPE FOR MVP:**
+- Real AI/ML (mock tips are fine)
+- Video tutorials
+- Notification system
+- Social sharing
+- Parenting blog/articles
+- Premium features
+
+---
+
+## IMPLEMENTATION TIMELINE (4 Hours)
+
+**Hour 0-30min:** Setup, DB, design system CSS  
+**Hour 30min-1hr:** Auth (email only, warm copy)  
+**Hour 1-1.5hrs:** Onboarding with soft animations  
+**Hour 1.5-2.5hrs:** Home dashboard + activity display (design-focused)  
+**Hour 2.5-3.5hrs:** Timer + success screen (with celebration design)  
+**Hour 3.5-4hrs:** Polish, animations, responsive check, deploy
+
+---
+
+## DESIGN SYSTEM CSS FRAMEWORK
+
+Use **Tailwind + custom CSS classes** for:
+- Color variables (CSS custom properties for palette)
+- Rounded corners (16px default)
+- Shadows (light, medium, strong)
+- Spacing (8px base unit)
+- Animations (fade, slide, scale)
+
+Example Tailwind Config Addition:
+```javascript
+theme: {
+  extend: {
+    colors: {
+      'nurtura-pink': '#F4D9E8',
+      'nurtura-blue': '#D6E8F7',
+      'nurtura-mint': '#D4F1E4',
+      'nurtura-cream': '#FDFAF5',
+      'nurtura-navy': '#1A365D',
+    },
+    borderRadius: {
+      'nurtura': '16px',
+    },
+  }
+}
+```
+
+---
+
+## TONE & COPY GUIDELINES
+
+**DO:**
+- Use first names (parent & baby)
+- Celebrate effort, not perfection
+- Acknowledge parent emotions ("You're doing amazing!")
+- Use emojis sparingly but authentically
+- Speak like a caring friend, not a doctor
+
+**DON'T:**
+- Use jargon or medical language
+- Make parents feel judged
+- Use generic corporate copy
+- Overload with options
+- Use aggressive CTA language
+
+**Sample Copy:**
+- ✅ "Let's cuddle up for 10 minutes and grow together 💕"
+- ❌ "Initiate bonding activity sequence"
+- ✅ "You just unlocked a new growth milestone! 🌱"
+- ❌ "Developmental milestone achieved"
+- ✅ "Gathering little moments of growth…"
+- ❌ "Loading…"
+
+---
+
+## DELIVERABLE
+
+Write **beautiful, production-ready code** with:
+- Intentional design system implementation
+- Warm, friendly copy throughout
+- Smooth animations & transitions (not jarring)
+- Mobile-responsive (tested 375px)
+- Accessible color contrast (WCAG AA minimum)
+- Comments on design decisions
+- Zero console errors
+
+**When user runs this in Replit, they see:**
+A warm, inviting parenting app that feels like it was designed *for families, not just data.*
+
+---
+
+## SUCCESS METRICS FOR INVESTORS
+
+"We built a parenting app that feels like talking to a caring friend, not a dashboard. Every interaction celebrates the parent-child bond. Design + Science + Care."
+
+---
+
+**NOW BUILD BEAUTIFULLY!** 🚀💕

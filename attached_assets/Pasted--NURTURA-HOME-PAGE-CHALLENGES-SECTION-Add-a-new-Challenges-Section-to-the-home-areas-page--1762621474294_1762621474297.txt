@@ -1,0 +1,845 @@
+# NURTURA HOME PAGE - CHALLENGES SECTION
+
+Add a new **Challenges Section** to the home/areas page with 30/90/180/365-day parent-child bonding challenges. This section appears **below the Areas grid** with a prominent "Challenges Now Live 🎯" button at the top.
+
+---
+
+## 🎯 FEATURE OVERVIEW
+
+### What is Added:
+1. **"Challenges Now Live 🎯" Button** - Blinking/highlighted button at top of page
+2. **Challenge Cards Grid** - 4 cards (30-Day, 90-Day, 180-Day, 365-Day)
+3. **Challenge Details Modal** - Click card → see daily activities for full duration
+4. **Challenge Enrollment** - Parent can join a challenge
+5. **Progress Tracking** - Track completed days (Phase 2)
+
+### User Flow:
+```
+Home Page
+  ↓
+[Blinking "Challenges Now Live 🎯" button] ← Jumps to challenges section
+  ↓
+Areas Section (existing)
+  ↓
+Challenges Section (new)
+  ├─ 30-Day Challenge Card
+  ├─ 90-Day Challenge Card
+  ├─ 180-Day Challenge Card
+  └─ 365-Day Challenge Card
+  ↓ (Click card)
+Challenge Details Modal
+  ├─ Challenge name & description
+  ├─ List of daily activities (30/90/180/365)
+  └─ "Start Challenge" CTA button
+  ↓
+Enrolled → Home page shows progress tracker
+```
+
+---
+
+## 🗄️ NEW DATABASE TABLES
+
+```sql
+-- Store challenge templates
+CREATE TABLE challenges (
+  id INTEGER PRIMARY KEY,
+  duration_days INTEGER, -- 30, 90, 180, 365
+  title TEXT,
+  tagline TEXT, -- e.g., "Build Curiosity & Wonder"
+  description TEXT, -- Lucrative, emotional description
+  cover_image TEXT, -- emoji or color
+  development_types TEXT, -- JSON: ["Physical", "Cognitive"]
+  created_at TIMESTAMP
+);
+
+-- Store daily activities for each challenge
+CREATE TABLE challenge_activities (
+  id INTEGER PRIMARY KEY,
+  challenge_id INTEGER,
+  day_number INTEGER, -- 1, 2, 3... 365
+  activity_title TEXT,
+  activity_description TEXT,
+  materials TEXT, -- JSON array
+  how_to TEXT, -- JSON array of steps
+  why_it_helps TEXT,
+  duration_min INTEGER,
+  created_at TIMESTAMP,
+  FOREIGN KEY (challenge_id) REFERENCES challenges(id)
+);
+
+-- Track parent enrollment in challenges
+CREATE TABLE challenge_enrollments (
+  id INTEGER PRIMARY KEY,
+  baby_id INTEGER,
+  challenge_id INTEGER,
+  started_at TIMESTAMP,
+  completed_days INTEGER DEFAULT 0,
+  status TEXT, -- "active", "paused", "completed"
+  created_at TIMESTAMP,
+  FOREIGN KEY (baby_id) REFERENCES babies(id),
+  FOREIGN KEY (challenge_id) REFERENCES challenges(id)
+);
+
+-- Track daily completion
+CREATE TABLE challenge_daily_logs (
+  id INTEGER PRIMARY KEY,
+  enrollment_id INTEGER,
+  day_number INTEGER,
+  activity_id INTEGER,
+  completed_at TIMESTAMP,
+  reflection_notes TEXT, -- Parent notes
+  created_at TIMESTAMP,
+  FOREIGN KEY (enrollment_id) REFERENCES challenge_enrollments(id),
+  FOREIGN KEY (activity_id) REFERENCES challenge_activities(id)
+);
+```
+
+---
+
+## 📱 UPDATED HOME PAGE (`/home`)
+
+### Route: `/home` (Updated)
+
+```python
+@app.route('/home')
+@login_required
+def home():
+    """
+    Show home/areas page with new Challenges section
+    """
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    
+    if not baby:
+        return redirect('/onboarding')
+    
+    # Get areas
+    areas = db.execute(
+        'SELECT * FROM development_areas WHERE baby_id = ? ORDER BY development_type',
+        (baby.id,)
+    ).fetchall()
+    
+    if not areas:
+        areas = []
+    
+    # Get challenges (all 4 templates)
+    challenges = db.execute(
+        'SELECT * FROM challenges ORDER BY duration_days'
+    ).fetchall()
+    
+    if not challenges:
+        # First visit: Generate challenge templates
+        challenges = generate_challenge_templates()
+        
+        for challenge in challenges:
+            db.execute(
+                '''INSERT INTO challenges 
+                   (duration_days, title, tagline, description, cover_image, development_types)
+                   VALUES (?, ?, ?, ?, ?, ?)''',
+                (challenge['duration'], challenge['title'], challenge['tagline'], 
+                 challenge['description'], challenge['emoji'], 
+                 json.dumps(challenge['development_types']))
+            )
+        db.commit()
+        challenges = db.execute(
+            'SELECT * FROM challenges ORDER BY duration_days'
+        ).fetchall()
+    
+    # Get parent's active challenges
+    active_challenges = db.execute(
+        '''SELECT ce.*, c.title, c.duration_days, c.tagline 
+           FROM challenge_enrollments ce
+           JOIN challenges c ON ce.challenge_id = c.id
+           WHERE ce.baby_id = ? AND ce.status = 'active'
+           ORDER BY ce.started_at DESC''',
+        (baby.id,)
+    ).fetchall()
+    
+    return render_template('home.html', 
+                         baby=baby,
+                         areas=areas,
+                         challenges=challenges,
+                         active_challenges=active_challenges)
+
+
+def generate_challenge_templates():
+    """
+    Generate 4 challenge templates with Claude
+    """
+    prompt = """
+    Create 4 parent-child bonding challenges for different durations.
+    
+    Return as JSON with this structure:
+    {
+      "challenges": [
+        {
+          "duration": 30,
+          "title": "30-Day Giggle Quest",
+          "tagline": "Build Curiosity & Wonder",
+          "description": "A 30-day adventure where you and your child explore the world together. Each day brings a new discovery, from sensory explorations to imaginative play. Perfect for building connection and fostering curiosity. By day 30, you'll notice your child asking more questions, laughing more, and seeking out new experiences—the foundation of lifelong learning.",
+          "emoji": "🎯",
+          "development_types": ["Physical", "Cognitive", "Linguistic", "Social-Emotional"]
+        },
+        {
+          "duration": 90,
+          "title": "90-Day Habit Hero",
+          "tagline": "Develop Good Habits & Confidence",
+          "description": "Transform your child's routine in 90 days. This challenge builds healthy habits like consistent playtime, outdoor exploration, and learning routines. Your child develops discipline, confidence, and independence. By day 90, bedtime routines are smoother, they're more curious, and you've created lasting positive patterns.",
+          "emoji": "🦸",
+          "development_types": ["Physical", "Cognitive", "Social-Emotional"]
+        },
+        {
+          "duration": 180,
+          "title": "180-Day Milestone Master",
+          "tagline": "Unlock Major Developmental Leaps",
+          "description": "Half a year of intentional development. Track your child's milestones across all developmental domains. This challenge creates sustained growth—from language expansion to complex problem-solving. By day 180, you'll see remarkable transformation in your child's confidence, vocabulary, motor skills, and emotional intelligence.",
+          "emoji": "⭐",
+          "development_types": ["Physical", "Cognitive", "Linguistic", "Social-Emotional"]
+        },
+        {
+          "duration": 365,
+          "title": "365-Day Growth Journey",
+          "tagline": "A Year of Transformation",
+          "description": "A full year of daily parent-child bonding activities tailored to your child's age. This is more than a challenge—it's a documented journey of growth. By day 365, you'll have created unbreakable bonds, fostered independence, developed key skills, and built a lifetime foundation for learning and emotional security.",
+          "emoji": "🌟",
+          "development_types": ["Physical", "Cognitive", "Linguistic", "Social-Emotional"]
+        }
+      ]
+    }
+    
+    Return ONLY valid JSON, no markdown.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    data = json.loads(response.content[0].text)
+    return data['challenges']
+```
+
+---
+
+## 🎨 CHALLENGES SECTION COMPONENT
+
+### HTML Template Update: `templates/home.html` (Add Below Areas Grid)
+
+```html
+<!-- EXISTING AREAS SECTION -->
+<div class="areas-section">
+  <!-- ...existing areas grid... -->
+</div>
+
+<!-- NEW: CHALLENGES SECTION -->
+<div class="challenges-container">
+  <!-- Blinking "Challenges Now Live" Button -->
+  <motion.a
+    href="#challenges-grid"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.8, delay: 0.5 }}
+    className="challenges-announcement-btn"
+    onClick={() => {
+      document.getElementById('challenges-grid').scrollIntoView({ behavior: 'smooth' });
+    }}
+  >
+    <span className="pulse-dot"></span>
+    Challenges Now Live 🎯
+  </motion.a>
+
+  <!-- Challenges Grid -->
+  <div id="challenges-grid" class="challenges-grid">
+    <h2 class="challenges-title">Transform Your Parenting Journey</h2>
+    <p class="challenges-subtitle">Choose a challenge and commit to 30, 90, 180, or 365 days of growth</p>
+
+    {% for challenge in challenges %}
+    <div class="challenge-card" onclick="openChallengeModal({{ challenge.id }})">
+      <div class="challenge-header" style="background-color: {{ 'rgba(212, 241, 228, 0.6)' if challenge.duration_days == 30 else 'rgba(214, 232, 247, 0.6)' if challenge.duration_days == 90 else 'rgba(244, 217, 232, 0.6)' if challenge.duration_days == 180 else 'rgba(255, 232, 201, 0.6)' }}">
+        <span class="challenge-emoji">{{ challenge.cover_image }}</span>
+        <span class="challenge-duration">{{ challenge.duration_days }} Days</span>
+      </div>
+
+      <div class="challenge-content">
+        <h3 class="challenge-title">{{ challenge.title }}</h3>
+        <p class="challenge-tagline">{{ challenge.tagline }}</p>
+        <p class="challenge-description">{{ challenge.description[:100] }}...</p>
+        
+        <button class="challenge-cta">Start Challenge →</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Challenge Details Modal -->
+<div id="challengeModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeChallengeModal()">&times;</span>
+    
+    <div id="modalBody">
+      <!-- Populated by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<style>
+/* Blinking Announcement Button */
+.challenges-announcement-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #FF69B4, #FF1493);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  text-decoration: none;
+  margin: 40px auto;
+  display: block;
+  width: fit-content;
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.4);
+  animation: pulse 2s infinite;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.challenges-announcement-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(255, 105, 180, 0.6);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes blink {
+  0%, 50%, 100% {
+    opacity: 1;
+  }
+  25%, 75% {
+    opacity: 0.4;
+  }
+}
+
+/* Challenges Container */
+.challenges-container {
+  margin-top: 60px;
+  padding: 40px 20px;
+}
+
+.challenges-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1A365D;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.challenges-subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 32px;
+  font-size: 14px;
+}
+
+/* Challenges Grid */
+.challenges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+/* Challenge Card */
+.challenge-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.challenge-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.challenge-header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 120px;
+}
+
+.challenge-emoji {
+  font-size: 48px;
+}
+
+.challenge-duration {
+  background: white;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1A365D;
+}
+
+.challenge-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.challenge-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1A365D;
+  margin: 0;
+}
+
+.challenge-tagline {
+  font-size: 13px;
+  color: #FF69B4;
+  font-weight: 600;
+  margin: 0;
+}
+
+.challenge-description {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.challenge-cta {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 300ms ease;
+}
+
+.challenge-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+/* Modal */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  animation: fadeIn 300ms ease;
+}
+
+.modal.show {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  animation: slideUp 300ms ease;
+}
+
+.close-btn {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  font-size: 28px;
+  font-weight: bold;
+  color: #999;
+  cursor: pointer;
+  transition: color 300ms ease;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .challenges-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .challenges-announcement-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>
+
+<script>
+function openChallengeModal(challengeId) {
+  fetch(`/api/challenge/${challengeId}`)
+    .then(r => r.json())
+    .then(challenge => {
+      const modal = document.getElementById('challengeModal');
+      const body = document.getElementById('modalBody');
+      
+      // Generate daily activities list
+      const activitiesList = challenge.activities
+        .map((a, i) => `
+          <div class="modal-day">
+            <span class="day-num">Day ${i + 1}</span>
+            <strong>${a.title}</strong><br>
+            <small>${a.description}</small>
+          </div>
+        `).join('');
+      
+      body.innerHTML = `
+        <h2>${challenge.title}</h2>
+        <p class="modal-tagline">${challenge.tagline}</p>
+        <p class="modal-description">${challenge.description}</p>
+        
+        <h3 style="margin-top: 20px; margin-bottom: 15px;">Daily Activities (Sample)</h3>
+        <div class="activities-preview">${activitiesList.slice(0, 5).join('')}</div>
+        <p style="text-align: center; color: #999; font-size: 12px; margin: 15px 0;">
+          ... and ${challenge.activities.length - 5} more activities
+        </p>
+        
+        <button class="modal-start-btn" onclick="enrollChallenge(${challengeId})">
+          Start ${challenge.duration_days}-Day Challenge
+        </button>
+      `;
+      
+      modal.classList.add('show');
+    });
+}
+
+function closeChallengeModal() {
+  document.getElementById('challengeModal').classList.remove('show');
+}
+
+function enrollChallenge(challengeId) {
+  fetch('/api/enroll-challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challenge_id: challengeId })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      alert('Challenge started! 🎉');
+      closeChallengeModal();
+      location.reload();
+    }
+  });
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  const modal = document.getElementById('challengeModal');
+  if (event.target === modal) {
+    closeChallengeModal();
+  }
+}
+</script>
+```
+
+---
+
+## 🔄 CHALLENGE DETAILS API ENDPOINT
+
+```python
+@app.route('/api/challenge/<int:challenge_id>')
+def get_challenge_details(challenge_id):
+    """
+    Get challenge details with all daily activities
+    """
+    challenge = db.execute(
+        'SELECT * FROM challenges WHERE id = ?',
+        (challenge_id,)
+    ).fetchone()
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    activities = db.execute(
+        'SELECT * FROM challenge_activities WHERE challenge_id = ? ORDER BY day_number',
+        (challenge_id,)
+    ).fetchall()
+    
+    return jsonify({
+        'id': challenge['id'],
+        'title': challenge['title'],
+        'tagline': challenge['tagline'],
+        'description': challenge['description'],
+        'duration_days': challenge['duration_days'],
+        'activities': [
+            {
+                'day': a['day_number'],
+                'title': a['activity_title'],
+                'description': a['activity_description']
+            }
+            for a in activities
+        ]
+    })
+
+
+@app.route('/api/enroll-challenge', methods=['POST'])
+@login_required
+def enroll_challenge():
+    """
+    Enroll baby in a challenge
+    """
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    challenge_id = request.json.get('challenge_id')
+    
+    # Check if already enrolled
+    existing = db.execute(
+        '''SELECT * FROM challenge_enrollments 
+           WHERE baby_id = ? AND challenge_id = ? AND status = 'active' ''',
+        (baby.id, challenge_id)
+    ).fetchone()
+    
+    if existing:
+        return jsonify({'success': False, 'message': 'Already enrolled'}), 400
+    
+    # Create enrollment
+    db.execute(
+        '''INSERT INTO challenge_enrollments (baby_id, challenge_id, status, started_at)
+           VALUES (?, ?, 'active', datetime('now'))''',
+        (baby.id, challenge_id)
+    )
+    db.commit()
+    
+    return jsonify({'success': True, 'message': 'Challenge started!'})
+```
+
+---
+
+## 🎯 GENERATE 30-DAY CHALLENGE ACTIVITIES PROMPT
+
+### Separate Route to Generate Activities
+
+```python
+@app.route('/api/generate-challenge-activities/<int:challenge_id>')
+def generate_challenge_activities(challenge_id):
+    """
+    Generate daily activities for a challenge using Claude
+    """
+    challenge = db.execute(
+        'SELECT * FROM challenges WHERE id = ?',
+        (challenge_id,)
+    ).fetchone()
+    
+    if not challenge:
+        return jsonify({'error': 'Challenge not found'}), 404
+    
+    # Check if activities already exist
+    existing = db.execute(
+        'SELECT COUNT(*) as count FROM challenge_activities WHERE challenge_id = ?',
+        (challenge_id,)
+    ).fetchone()
+    
+    if existing['count'] > 0:
+        return jsonify({'message': 'Activities already generated'})
+    
+    # Generate activities
+    activities = generate_daily_activities(challenge)
+    
+    # Store in DB
+    for activity in activities:
+        db.execute(
+            '''INSERT INTO challenge_activities 
+               (challenge_id, day_number, activity_title, activity_description, 
+                materials, how_to, why_it_helps, duration_min)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (challenge_id, activity['day'], activity['title'], activity['description'],
+             json.dumps(activity.get('materials', [])), json.dumps(activity.get('how_to', [])),
+             activity.get('why_it_helps', ''), activity.get('duration', 10))
+        )
+    db.commit()
+    
+    return jsonify({'success': True, 'activities_count': len(activities)})
+
+
+def generate_daily_activities(challenge):
+    """
+    Generate continuous daily activities for a challenge using Claude
+    """
+    duration = challenge['duration_days']
+    title = challenge['title']
+    tagline = challenge['tagline']
+    
+    prompt = f"""
+    You are a child development expert. Generate {duration} continuous daily activities for a parent-child bonding challenge.
+    
+    Challenge: {title}
+    Duration: {duration} days
+    Focus: {tagline}
+    
+    IMPORTANT: These are CONTINUOUS activities, meaning:
+    - Activities build on each other progressively
+    - Each day introduces something new but relates to previous days
+    - Skills compound over time (e.g., Day 1: listen to music, Day 2: sing together, Day 3: make instruments, Day 4: create songs)
+    - Create progression in difficulty, complexity, and independence
+    - By day {duration}, significant habit/skill development should be visible
+    
+    Format as JSON:
+    {{
+      "activities": [
+        {{
+          "day": 1,
+          "title": "Start Listening",
+          "description": "Introduce your child to different sounds. Play soft music, nature sounds, or nursery rhymes.",
+          "materials": ["Phone or speaker", "Headphones (optional)"],
+          "how_to": [
+            "Find a quiet space",
+            "Play 5-10 minutes of gentle music or nature sounds",
+            "Observe your child's reactions",
+            "Talk about what they hear"
+          ],
+          "why_it_helps": "Builds auditory awareness and sensory development.",
+          "duration": 10
+        }},
+        {{
+          "day": 2,
+          "title": "Sound Exploration",
+          "description": "Expand sound discovery by creating simple sounds together.",
+          "materials": ["Spoons", "Pots", "Bells"],
+          "how_to": [
+            "Collect safe household items that make sounds",
+            "Make different sounds together",
+            "Let child bang and explore",
+            "Name each sound (high, low, loud, soft)"
+          ],
+          "why_it_helps": "Develops cause-effect understanding and language.",
+          "duration": 10
+        }},
+        ... ({duration} activities total)
+      ]
+    }}
+    
+    Guidelines:
+    1. Progression: Each day builds on previous knowledge/skills
+    2. Variety: Mix different activity types (active, quiet, learning, creative)
+    3. Age-Agnostic: Works for ages 0-6 (adjust complexity in description)
+    4. Accessible: Use household items, no expensive materials
+    5. Realistic: Each activity takes 5-15 minutes
+    6. Engaging: Make descriptions exciting and parent-focused
+    7. Habit-Building: By day {duration}, a visible habit or skill is formed
+    
+    Return ONLY valid JSON, no markdown.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=8000 if duration == 30 else 15000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    data = json.loads(response.content[0].text)
+    return data['activities']
+```
+
+---
+
+## ✅ IMPLEMENTATION CHECKLIST
+
+- [ ] Create 4 database tables (challenges, challenge_activities, enrollments, daily_logs)
+- [ ] Update `/home` route to fetch challenges
+- [ ] Add `generate_challenge_templates()` function
+- [ ] Add `generate_daily_activities()` function
+- [ ] Add `/api/challenge/<id>` endpoint
+- [ ] Add `/api/enroll-challenge` endpoint
+- [ ] Add `/api/generate-challenge-activities/<id>` endpoint
+- [ ] Update `templates/home.html` with challenges section
+- [ ] Add blinking "Challenges Now Live 🎯" button
+- [ ] Add challenge card grid
+- [ ] Add modal for challenge details
+- [ ] Test challenge enrollment flow
+- [ ] Test smooth scroll to challenges section
+- [ ] Verify responsive design on mobile
+
+---
+
+## 🎨 CHALLENGE CARD COLOR CODING
+
+| Duration | Color Background | Emoji |
+|----------|------------------|-------|
+| 30 Days | Mint Green (#D4F1E4) | 🎯 |
+| 90 Days | Sky Blue (#D6E8F7) | 🦸 |
+| 180 Days | Blush Pink (#F4D9E8) | ⭐ |
+| 365 Days | Peach (#FFE5CC) | 🌟 |
+
+---
+
+## 💡 KEY FEATURES
+
+✅ **Blinking/Highlighted Button** - Draws attention to new challenges section  
+✅ **Smooth Scroll Jump** - Clicks button → smoothly scrolls to challenges  
+✅ **4 Challenge Durations** - 30, 90, 180, 365 days with unique descriptions  
+✅ **Lucrative Copy** - Emotional, benefit-focused descriptions  
+✅ **Continuous Activities** - Daily tasks that build on each other  
+✅ **Progressive Difficulty** - Complexity increases over time  
+✅ **Modal Details** - Click card → see all daily activities  
+✅ **Enrollment Flow** - Join challenge → start tracking progress  
+✅ **Mobile Responsive** - Works on 375px+ width  
+
+---
+
+## 🚀 READY TO BUILD?
+
+This prompt generates:
+- ✅ Challenges section on home page
+- ✅ 4 challenge card templates (30/90/180/365 days)
+- ✅ Blinking announcement button with smooth scroll
+- ✅ Challenge details modal with daily activities
+- ✅ Claude-generated continuous daily activities
+- ✅ Challenge enrollment & tracking system
+- ✅ Mobile-first responsive design
+
+**Paste into Replit now!** 🌿💕

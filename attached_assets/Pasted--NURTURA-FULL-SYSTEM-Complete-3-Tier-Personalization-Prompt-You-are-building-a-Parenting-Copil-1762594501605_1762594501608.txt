@@ -1,0 +1,977 @@
+# NURTURA FULL SYSTEM - Complete 3-Tier Personalization Prompt
+
+You are building a **Parenting Copilot Orchestrator** that generates ability assessments, personalized activities, and AI-illustrated content.
+
+This prompt builds ON TOP of your existing MVP. It adds:
+1. **Ability Assessment Questions** (post-goal selection)
+2. **Ability-Based Activity Generation** (personalized to assessment results)
+3. **AI-Generated Activity Illustrations** (images via Anthropic's vision API or image generation)
+4. **Personalized Homepage** (dynamic message + matched activities)
+
+---
+
+## 📊 NEW DATA FLOW
+
+```
+User Journey:
+Signup → Onboarding (baby details + goals) 
+  ↓
+[NEW] Ability Assessment Questions
+  ↓ (parent answers)
+Store Ability Results in DB
+  ↓
+[NEW] Generate Personalized Activities (Claude)
+  ↓
+[NEW] Generate Illustrations for Each Activity (Image API)
+  ↓
+Activity Picker (now personalized to ability state)
+  ↓
+Timer + Complete Activity
+  ↓
+[NEW] Personalized Homepage (shows progress + next activities)
+```
+
+---
+
+## 🗄️ NEW DATABASE TABLES
+
+```sql
+-- Store ability assessment questions
+CREATE TABLE ability_questions (
+  id INTEGER PRIMARY KEY,
+  domain TEXT, -- "Physical", "Cognitive", "Linguistic", "Social-Emotional"
+  question_text TEXT,
+  age_range_min INTEGER,
+  age_range_max INTEGER,
+  difficulty_level TEXT -- "easy", "medium", "hard"
+);
+
+-- Store parent's answers to ability questions
+CREATE TABLE ability_assessments (
+  id INTEGER PRIMARY KEY,
+  baby_id INTEGER,
+  question_id INTEGER,
+  response TEXT, -- "Mastered", "On-Track", "Not Sure"
+  answered_at TIMESTAMP,
+  FOREIGN KEY (baby_id) REFERENCES babies(id),
+  FOREIGN KEY (question_id) REFERENCES ability_questions(id)
+);
+
+-- Store personalized activities (generated based on abilities)
+CREATE TABLE personalized_activities (
+  id INTEGER PRIMARY KEY,
+  baby_id INTEGER,
+  title TEXT,
+  description TEXT,
+  materials TEXT, -- JSON list
+  how_to TEXT, -- JSON array of steps
+  why_it_helps TEXT,
+  target_ability TEXT, -- e.g., "Rolling Over"
+  target_domain TEXT, -- "Physical", "Cognitive", etc.
+  ability_state TEXT, -- "Needs Support", "On-Track", "Mastered"
+  duration_min INTEGER,
+  illustration_url TEXT, -- URL to AI-generated image
+  safety_notes TEXT,
+  reflection_prompt TEXT,
+  created_at TIMESTAMP,
+  FOREIGN KEY (baby_id) REFERENCES babies(id)
+);
+```
+
+---
+
+## 🎯 FEATURE 1: ABILITY ASSESSMENT QUESTIONS
+
+### Route
+- `GET /ability-assessment/<baby_id>` - Show assessment questions
+- `POST /ability-assessment` - Save responses
+
+### Architecture
+
+**Step 1: Generate Assessment Questions (On First Visit)**
+
+```python
+@app.route('/ability-assessment/<baby_id>', methods=['GET'])
+@login_required
+def show_ability_assessment(baby_id):
+    """
+    Generate and show ability assessment questions based on baby age + goals
+    """
+    baby = get_baby_by_id(baby_id)
+    
+    # Check if already answered today
+    existing = db.execute(
+        'SELECT * FROM ability_assessments WHERE baby_id = ? AND date(answered_at) = date(now())',
+        (baby_id,)
+    ).fetchall()
+    
+    if existing:
+        # Already assessed today, go to activities
+        return redirect(f'/activities/{baby_id}')
+    
+    # Generate questions using Claude
+    questions = generate_ability_questions(baby)
+    
+    return render_template('ability_assessment.html', baby=baby, questions=questions)
+
+
+def generate_ability_questions(baby):
+    """
+    Call Claude to generate 5-8 ability assessment questions based on baby age + goals
+    """
+    age_months = baby.age_months
+    goals = json.loads(baby.development_goals)
+    
+    prompt = f"""
+    You are a developmental psychology expert. Generate ability assessment questions for a {age_months}-month-old baby 
+    focusing on: {', '.join(goals)}.
+    
+    Requirements:
+    1. Generate 5-8 questions total (mix across the selected goals)
+    2. Each question should be answerable by a parent with: "Mastered" / "On-Track" / "Not Sure"
+    3. Base on verified sources: CDC, ASQ (Ages & Stages Questionnaire), WHO milestones
+    4. Tone: warm, non-judgmental, empowering
+    5. Use baby name: {baby.baby_name}
+    
+    Format as JSON:
+    {{
+      "questions": [
+        {{
+          "id": "abil_1",
+          "domain": "Physical",
+          "text": "Can {baby.baby_name} roll from back to front on their own?",
+          "age_range": "{age_months} months",
+          "helpful_hint": "They don't need to do it perfectly every time."
+        }},
+        {{
+          "id": "abil_2",
+          "domain": "Cognitive",
+          "text": "Does {baby.baby_name} look for objects that roll or fall out of sight?",
+          "age_range": "{age_months} months",
+          "helpful_hint": "This shows object permanence development."
+        }}
+      ]
+    }}
+    
+    Return ONLY valid JSON.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=1500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    questions_data = json.loads(response.content[0].text)
+    return questions_data['questions']
+
+
+@app.route('/ability-assessment', methods=['POST'])
+@login_required
+def save_ability_assessment():
+    """
+    Save parent's answers to ability questions
+    """
+    baby_id = request.form.get('baby_id')
+    responses = request.form.getlist('responses[]')  # List of answers
+    question_ids = request.form.getlist('question_ids[]')
+    
+    # Store each response
+    for q_id, response in zip(question_ids, responses):
+        db.execute(
+            'INSERT INTO ability_assessments (baby_id, question_id, response, answered_at) VALUES (?, ?, ?, datetime(now()))',
+            (baby_id, q_id, response)
+        )
+    db.commit()
+    
+    # Redirect to activity generation
+    return redirect(f'/generate-activities/{baby_id}')
+```
+
+### HTML Template (`templates/ability_assessment.html`)
+
+```html
+<div class="assessment-container">
+  <h1>Let's learn about {{ baby.baby_name }}'s abilities 🌱</h1>
+  <p>Answer these questions to help us personalize activities.</p>
+  <p class="subtitle">Your answers are confidential and help us understand your child better.</p>
+  
+  <form method="POST" action="/ability-assessment">
+    <input type="hidden" name="baby_id" value="{{ baby.id }}">
+    
+    {% for question in questions %}
+    <div class="question-card">
+      <h3>{{ question.text }}</h3>
+      <p class="hint">💡 {{ question.helpful_hint }}</p>
+      <p class="age-info">Age: {{ question.age_range }}</p>
+      
+      <div class="response-options">
+        <label class="response-radio">
+          <input type="radio" name="responses[]" value="Mastered" required>
+          <span>✅ Mastered</span>
+          <small>My child does this easily</small>
+        </label>
+        
+        <label class="response-radio">
+          <input type="radio" name="responses[]" value="On-Track" required>
+          <span>🌱 On-Track</span>
+          <small>Getting there, still practicing</small>
+        </label>
+        
+        <label class="response-radio">
+          <input type="radio" name="responses[]" value="Not Sure" required>
+          <span>❓ Not Sure</span>
+          <small>Haven't observed this yet</small>
+        </label>
+      </div>
+      
+      <input type="hidden" name="question_ids[]" value="{{ question.id }}">
+    </div>
+    {% endfor %}
+    
+    <button type="submit" class="btn-primary">See Personalized Activities ➜</button>
+  </form>
+</div>
+
+<style>
+.assessment-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.question-card {
+  background: #FDFAF5;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border-left: 4px solid #D6E8F7;
+}
+
+.question-card h3 {
+  color: #1A365D;
+  margin-bottom: 8px;
+}
+
+.hint {
+  font-size: 13px;
+  color: #8B8B8B;
+  margin-bottom: 8px;
+}
+
+.age-info {
+  font-size: 12px;
+  color: #B0B0B0;
+}
+
+.response-options {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.response-radio {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border: 1px solid #E0E0E0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.response-radio:hover {
+  border-color: #4CAF50;
+  background: #F0F8F4;
+}
+
+.response-radio input[type="radio"]:checked + span {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.response-radio span {
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.response-radio small {
+  display: block;
+  font-size: 12px;
+  color: #8B8B8B;
+  margin-left: 24px;
+  margin-top: 4px;
+}
+</style>
+```
+
+---
+
+## 🎯 FEATURE 2: GENERATE PERSONALIZED ACTIVITIES
+
+### Route
+- `GET /generate-activities/<baby_id>` - Trigger activity generation + show loading
+- Background job generates activities based on ability assessment
+
+### Architecture
+
+```python
+@app.route('/generate-activities/<baby_id>', methods=['GET'])
+@login_required
+def generate_activities_page(baby_id):
+    """
+    Generate personalized activities based on ability assessment results
+    """
+    baby = get_baby_by_id(baby_id)
+    
+    # Get latest ability assessment
+    abilities = db.execute(
+        '''SELECT aa.response, aq.domain, aq.text 
+           FROM ability_assessments aa
+           JOIN ability_questions aq ON aa.question_id = aq.id
+           WHERE aa.baby_id = ? 
+           ORDER BY aa.answered_at DESC
+           LIMIT 10''',
+        (baby_id,)
+    ).fetchall()
+    
+    # Generate personalized activities using Claude
+    activities = generate_personalized_activities(baby, abilities)
+    
+    # Generate images for each activity (async or in-process)
+    for activity in activities:
+        activity['illustration_url'] = generate_activity_illustration(activity, baby)
+    
+    # Store activities in DB
+    for activity in activities:
+        db.execute(
+            '''INSERT INTO personalized_activities 
+               (baby_id, title, description, materials, how_to, why_it_helps, 
+                target_ability, target_domain, ability_state, duration_min, 
+                illustration_url, safety_notes, reflection_prompt)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (baby_id, activity['title'], activity['description'],
+             json.dumps(activity['materials']), json.dumps(activity['how_to']),
+             activity['why_it_helps'], activity.get('target_ability', ''),
+             activity['target_domain'], activity.get('ability_state', 'On-Track'),
+             activity['duration_min'], activity['illustration_url'],
+             activity.get('safety_notes', ''), activity.get('reflection_prompt', ''))
+        )
+    db.commit()
+    
+    return render_template('activities_loading.html', baby=baby)
+
+
+def generate_personalized_activities(baby, abilities):
+    """
+    Call Claude to generate 3-5 activities per goal, tied to ability state
+    """
+    age_months = baby.age_months
+    goals = json.loads(baby.development_goals)
+    
+    # Format ability results for Claude
+    ability_summary = []
+    for ability in abilities:
+        ability_summary.append({
+            "domain": ability['domain'],
+            "ability": ability['text'],
+            "state": ability['response']
+        })
+    
+    prompt = f"""
+    You are a developmental psychologist creating personalized activities for a parent.
+    
+    Child: {baby.baby_name}, {age_months} months old
+    Development Goals: {', '.join(goals)}
+    
+    Ability Assessment Results:
+    {json.dumps(ability_summary, indent=2)}
+    
+    Generate 3-5 personalized activities that:
+    1. Target the abilities marked as "On-Track" or "Needs Support"
+    2. Celebrate abilities marked as "Mastered"
+    3. Are age-appropriate and safe
+    4. Include clear materials, steps, and why it matters
+    5. Include a reflection prompt for the parent
+    
+    Format as JSON:
+    {{
+      "activities": [
+        {{
+          "title": "Activity Name",
+          "description": "One-sentence summary",
+          "materials": ["Item 1", "Item 2"],
+          "how_to": [
+            "Step 1: Description",
+            "Step 2: Description",
+            "Step 3: Description"
+          ],
+          "why_it_helps": "Scientific explanation of developmental benefit",
+          "target_domain": "Physical",
+          "target_ability": "Rolling Over",
+          "ability_state": "On-Track",
+          "duration_min": 10,
+          "safety_notes": "Any safety considerations",
+          "reflection_prompt": "How did {{child_name}} respond to this activity?",
+          "illustration_idea": "A parent and baby on a mat, baby rolling from back to side, parent clapping"
+        }}
+      ]
+    }}
+    
+    Return ONLY valid JSON.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    activities_data = json.loads(response.content[0].text)
+    return activities_data['activities']
+
+
+def generate_activity_illustration(activity, baby):
+    """
+    Generate AI image for activity using Claude's vision capabilities
+    or external image generation API (e.g., Replicate for FLUX)
+    """
+    illustration_prompt = activity.get('illustration_idea', '')
+    
+    # Use Replicate API for FLUX image generation (recommended for quality)
+    # Alternative: Use OpenAI DALL-E, Stability AI, etc.
+    
+    try:
+        import replicate
+        
+        # Create detailed prompt for image generation
+        full_prompt = f"""
+        Create a warm, inviting illustration for a parenting app activity.
+        
+        Activity: {activity['title']}
+        Description: {illustration_prompt}
+        
+        Style: Modern, soft colors (pastels: pinks, blues, greens), 
+               warm lighting, parent-child bonding, joyful, safe, diverse representation
+        Resolution: 1024x768
+        Format: Illustration style (not photorealistic)
+        Tone: Encouraging, calm, family-friendly
+        """
+        
+        output = replicate.run(
+            "black-forest-labs/flux-pro",
+            input={
+                "prompt": full_prompt,
+                "aspect_ratio": "4:3",
+                "output_format": "jpeg",
+                "safety_tolerance": 2
+            }
+        )
+        
+        # output is typically a URL string
+        return output[0] if isinstance(output, list) else output
+        
+    except Exception as e:
+        print(f"Image generation failed: {e}")
+        # Fallback to emoji illustration
+        return f"data:image/svg+xml,<svg>...</svg>"  # Placeholder
+
+
+@app.route('/activities/<baby_id>')
+@login_required
+def show_personalized_activities(baby_id):
+    """
+    Display personalized activities to parent
+    """
+    baby = get_baby_by_id(baby_id)
+    activities = db.execute(
+        'SELECT * FROM personalized_activities WHERE baby_id = ? ORDER BY created_at DESC',
+        (baby_id,)
+    ).fetchall()
+    
+    return render_template('activity_picker.html', baby=baby, activities=activities)
+```
+
+### HTML Template (`templates/activity_picker.html`)
+
+```html
+<div class="activities-container">
+  <h1>Personalized Activities for {{ baby.baby_name }} 🌱</h1>
+  <p class="subtitle">Based on {{ baby.baby_name }}'s abilities, here are activities we recommend:</p>
+  
+  <div class="activities-grid">
+    {% for activity in activities %}
+    <div class="activity-card">
+      <!-- AI-Generated Illustration -->
+      <div class="activity-image">
+        {% if activity.illustration_url %}
+          <img src="{{ activity.illustration_url }}" alt="{{ activity.title }}">
+        {% else %}
+          <div class="placeholder">📸</div>
+        {% endif %}
+      </div>
+      
+      <!-- Activity Info -->
+      <div class="activity-info">
+        <h3>{{ activity.title }}</h3>
+        <p class="description">{{ activity.description }}</p>
+        
+        <!-- Badges -->
+        <div class="badges">
+          <span class="badge domain">{{ activity.target_domain }}</span>
+          <span class="badge state">{{ activity.ability_state }}</span>
+          <span class="badge duration">⏱️ {{ activity.duration_min }} min</span>
+        </div>
+        
+        <!-- Target Ability -->
+        {% if activity.target_ability %}
+        <p class="target">
+          <strong>Focuses on:</strong> {{ activity.target_ability }}
+        </p>
+        {% endif %}
+        
+        <!-- Why It Helps -->
+        <div class="why-it-helps">
+          <p><strong>Why it helps:</strong> {{ activity.why_it_helps }}</p>
+        </div>
+        
+        <!-- Materials -->
+        {% if activity.materials %}
+        <div class="materials">
+          <strong>You'll need:</strong>
+          <ul>
+            {% for material in activity.materials %}
+              <li>{{ material }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        
+        <!-- How To -->
+        <div class="how-to">
+          <strong>How to do it:</strong>
+          <ol>
+            {% for step in activity.how_to %}
+              <li>{{ step }}</li>
+            {% endfor %}
+          </ol>
+        </div>
+        
+        <!-- Safety Notes -->
+        {% if activity.safety_notes %}
+        <p class="safety">🔒 <strong>Safety:</strong> {{ activity.safety_notes }}</p>
+        {% endif %}
+        
+        <!-- CTA Button -->
+        <button class="btn-primary" onclick="startActivity('{{ activity.id }}')">
+          Start Activity ➜
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+.activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.activity-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: all 300ms ease;
+}
+
+.activity-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.activity-image {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(135deg, #D4F1E4, #D6E8F7);
+  overflow: hidden;
+}
+
+.activity-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+}
+
+.activity-info {
+  padding: 20px;
+}
+
+.activity-info h3 {
+  color: #1A365D;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge.domain {
+  background: #D6E8F7;
+  color: #1A365D;
+}
+
+.badge.state {
+  background: #D4F1E4;
+  color: #2E7D32;
+}
+
+.badge.duration {
+  background: #F4D9E8;
+  color: #7B1FA2;
+}
+
+.target {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.why-it-helps {
+  background: #F0F8F4;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.materials,
+.how-to {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.materials strong,
+.how-to strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #1A365D;
+}
+
+.materials ul,
+.how-to ol {
+  margin-left: 16px;
+  line-height: 1.6;
+}
+
+.safety {
+  background: #FFF3CD;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  color: #664D03;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #D4F1E4, #4CAF50);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
+}
+</style>
+
+<script>
+function startActivity(activityId) {
+  window.location.href = `/timer/${activityId}`;
+}
+</script>
+```
+
+---
+
+## 🏠 FEATURE 3: PERSONALIZED HOMEPAGE
+
+### Updated Route
+
+```python
+@app.route('/home')
+@login_required
+def home():
+    """
+    Show personalized homepage with dynamic message + recommended activities
+    """
+    user_id = session['user_id']
+    baby = get_baby_by_user(user_id)
+    
+    if not baby:
+        return redirect('/onboarding')
+    
+    # Get latest ability assessment
+    latest_abilities = db.execute(
+        '''SELECT DISTINCT aq.domain, aa.response
+           FROM ability_assessments aa
+           JOIN ability_questions aq ON aa.question_id = aq.id
+           WHERE aa.baby_id = ?
+           ORDER BY aa.answered_at DESC
+           LIMIT 4''',
+        (baby.id,)
+    ).fetchall()
+    
+    # Generate personalized message
+    message = generate_homepage_message(baby, latest_abilities)
+    
+    # Get recommended activities (top 3)
+    activities = db.execute(
+        'SELECT * FROM personalized_activities WHERE baby_id = ? ORDER BY created_at DESC LIMIT 3',
+        (baby.id,)
+    ).fetchall()
+    
+    # Get today's completed activities
+    completed_today = db.execute(
+        '''SELECT COUNT(*) as count FROM completed_activities
+           WHERE baby_id = ? AND date(completed_at) = date(now())''',
+        (baby.id,)
+    ).fetchone()
+    
+    return render_template('home.html', 
+                         baby=baby, 
+                         message=message,
+                         activities=activities,
+                         completed_today=completed_today['count'])
+
+
+def generate_homepage_message(baby, abilities):
+    """
+    Generate personalized, warm homepage message
+    """
+    age_months = baby.age_months
+    goals = json.loads(baby.development_goals)
+    
+    ability_context = ", ".join([f"{a['domain']} ({a['response']})" for a in abilities])
+    
+    prompt = f"""
+    Generate a warm, encouraging homepage message for a parent.
+    
+    Child: {baby.baby_name}, {age_months} months old
+    Development focus: {', '.join(goals)}
+    Latest abilities: {ability_context}
+    
+    Message should:
+    1. Be personal and warm (use child's name)
+    2. Celebrate progress
+    3. Encourage next steps
+    4. Be 1-2 sentences max
+    5. End with an emoji
+    
+    Example: "Let's nurture Emma's Cognitive and Physical growth today—one joyful moment at a time 🌱"
+    
+    Generate ONLY the message text, nothing else.
+    """
+    
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=200,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response.content[0].text.strip()
+```
+
+### Updated Homepage Template (`templates/home.html`)
+
+```html
+<div class="home-container">
+  <!-- Personalized Hero Message -->
+  <div class="hero-message">
+    <h1>{{ message }}</h1>
+  </div>
+  
+  <!-- Today's Progress -->
+  <div class="today-progress">
+    <p>🎉 You've completed <strong>{{ completed_today }} activities</strong> today</p>
+  </div>
+  
+  <!-- Recommended Activities -->
+  <div class="recommended-section">
+    <h2>Recommended for Today</h2>
+    
+    {% if activities %}
+    <div class="activities-preview">
+      {% for activity in activities[:3] %}
+      <div class="activity-preview-card">
+        {% if activity.illustration_url %}
+          <img src="{{ activity.illustration_url }}" alt="{{ activity.title }}">
+        {% endif %}
+        
+        <h3>{{ activity.title }}</h3>
+        <p>{{ activity.description }}</p>
+        
+        <div class="badges">
+          <span class="badge">{{ activity.target_ability }}</span>
+          <span class="badge">⏱️ {{ activity.duration_min }}min</span>
+        </div>
+        
+        <button class="btn-small" onclick="startActivity('{{ activity.id }}')">
+          Start Activity
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    
+    <!-- View All Button -->
+    <a href="/activities/{{ baby.id }}" class="btn-secondary">View All Personalized Activities ➜</a>
+    
+    {% else %}
+    <p class="empty">No activities yet. Complete your ability assessment to get started! 🌱</p>
+    <a href="/ability-assessment/{{ baby.id }}" class="btn-primary">Take Assessment</a>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.hero-message {
+  background: linear-gradient(135deg, #D4F1E4, #D6E8F7);
+  padding: 40px 20px;
+  border-radius: 16px;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.hero-message h1 {
+  color: #1A365D;
+  font-size: 28px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.today-progress {
+  background: #F4D9E8;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.recommended-section h2 {
+  color: #1A365D;
+  margin-bottom: 20px;
+}
+
+.activities-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.activity-preview-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.activity-preview-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.activity-preview-card h3 {
+  color: #1A365D;
+  padding: 12px 16px 4px;
+  font-size: 16px;
+  margin: 0;
+}
+
+.activity-preview-card p {
+  padding: 0 16px;
+  font-size: 12px;
+  color: #666;
+  margin: 4px 0;
+}
+
+.badges {
+  padding: 8px 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.badge {
+  background: #E8F5E9;
+  color: #2E7D32;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.btn-small {
+  width: calc(100% - 32px);
+  margin: 8px 16px 16px;
+  padding: 10px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-small:hover {
+  background: #45a049;
+}
+
+.empty {
+  text-align: center;
+  color: #8B8B8B;
+  padding: 20px;
+}
+</style>
+
+<script>
+function startActivity(activityI

@@ -1,0 +1,523 @@
+# NURTURA MVP - ITERATION FIXES PROMPT
+
+Paste this into Replit AI to fix the current MVP. These are targeted fixes to existing code.
+
+---
+
+## ISSUE 1: Simplify Signup Screen (Remove Optional Fields)
+
+### Current Problem
+- Signup has "Your Name (Optional)" and "Choose Avatar (Optional)" fields
+- This adds unnecessary complexity and confuses users
+
+### Fix Required
+
+**Modify `/signup` route and `templates/signup.html`:**
+
+1. **Remove these fields entirely:**
+   - "Your Name (Optional)" input
+   - "Choose Your Avatar (Optional)" emoji picker
+   - All avatar-related database fields from users table (or don't display them)
+
+2. **Keep ONLY:**
+   - Email input
+   - Password input
+   - Confirm Password input
+   - "Create Account" button
+
+3. **Updated Signup Form (HTML):**
+```html
+<!-- Simplified signup form -->
+<div class="card">
+  <h1>Create your Nurtura account</h1>
+  <p>Let's support your little one's growth together 🌱</p>
+  
+  <form method="POST">
+    <!-- Email -->
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" name="email" required placeholder="your@email.com">
+    </div>
+    
+    <!-- Password -->
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" required placeholder="Min 6 characters">
+    </div>
+    
+    <!-- Confirm Password -->
+    <div class="form-group">
+      <label>Confirm Password</label>
+      <input type="password" name="confirm_password" required>
+    </div>
+    
+    <!-- Submit Button -->
+    <button type="submit" class="btn-primary">Create Account ➜</button>
+    
+    <!-- Link to Login -->
+    <p>Already have an account? <a href="/login">Login here</a></p>
+  </form>
+</div>
+```
+
+4. **Python Backend Changes:**
+   - Remove `parent_name` and `avatar_emoji` from user signup validation
+   - Keep only email and password hashing
+   - Simplify the signup route to only process email + password
+
+**Result:** Clean, fast signup in 30 seconds. No distraction.
+
+---
+
+## ISSUE 2: Fix Baby Goals Selection UI (Clear Multi-Select)
+
+### Current Problem
+- Goals screen doesn't clearly indicate it's a multi-select
+- No visual feedback for selected/unselected state
+- Confusing checkbox styling
+
+### Fix Required
+
+**Modify `templates/onboarding.html` - Goals Section:**
+
+Replace the current goals section with this clear, interactive design:
+
+```html
+<div class="onboarding-screen">
+  <h2>What areas of growth matter most to you?</h2>
+  <p class="subtitle">✓ Select at least 1 (you can choose multiple)</p>
+  
+  <form id="goals-form" method="POST">
+    <div class="goals-grid">
+      
+      <!-- Goal 1: Cognitive -->
+      <label class="goal-card">
+        <input type="checkbox" name="development_goals" value="Cognitive" required>
+        <div class="goal-content">
+          <div class="goal-icon">🧠</div>
+          <h3>Cognitive Development</h3>
+          <p>Problem solving, thinking, learning</p>
+          <span class="checkmark-visual">✓</span>
+        </div>
+      </label>
+      
+      <!-- Goal 2: Social-Emotional -->
+      <label class="goal-card">
+        <input type="checkbox" name="development_goals" value="Social-Emotional">
+        <div class="goal-content">
+          <div class="goal-icon">💚</div>
+          <h3>Social-Emotional Growth</h3>
+          <p>Emotions, connections, empathy</p>
+          <span class="checkmark-visual">✓</span>
+        </div>
+      </label>
+      
+      <!-- Goal 3: Linguistic -->
+      <label class="goal-card">
+        <input type="checkbox" name="development_goals" value="Linguistic">
+        <div class="goal-content">
+          <div class="goal-icon">💬</div>
+          <h3>Linguistic Development</h3>
+          <p>Speaking, listening, communication</p>
+          <span class="checkmark-visual">✓</span>
+        </div>
+      </label>
+      
+      <!-- Goal 4: Physical -->
+      <label class="goal-card">
+        <input type="checkbox" name="development_goals" value="Physical">
+        <div class="goal-content">
+          <div class="goal-icon">🤸</div>
+          <h3>Physical Development</h3>
+          <p>Movement, coordination, motor skills</p>
+          <span class="checkmark-visual">✓</span>
+        </div>
+      </label>
+      
+    </div>
+    
+    <!-- Submit Button -->
+    <button type="submit" class="btn-primary">Continue ➜</button>
+  </form>
+</div>
+```
+
+**CSS for Goal Cards (add to `static/style.css`):**
+
+```css
+.goals-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.goal-card {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.goal-card input[type="checkbox"] {
+  display: none; /* Hide default checkbox */
+}
+
+.goal-content {
+  padding: 20px;
+  background: #FDFAF5;
+  border: 2px solid #E0E0E0;
+  border-radius: 16px;
+  text-align: center;
+  transition: all 300ms ease;
+  position: relative;
+}
+
+.goal-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.goal-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1A365D;
+  margin-bottom: 6px;
+}
+
+.goal-content p {
+  font-size: 13px;
+  color: #8B8B8B;
+  margin-bottom: 12px;
+}
+
+.checkmark-visual {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #4CAF50;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+/* Checked state */
+.goal-card input[type="checkbox"]:checked + .goal-content {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, #D4F1E4, #FDFAF5);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.goal-card input[type="checkbox"]:checked + .goal-content .checkmark-visual {
+  display: flex;
+}
+
+/* Mobile: Stack to 1 column */
+@media (max-width: 600px) {
+  .goals-grid {
+    grid-template-columns: 1fr;
+  }
+}
+```
+
+**Result:** 
+- Clear visual feedback (green border + checkmark when selected)
+- Multi-select is obvious
+- Beautiful, interactive selection experience
+
+---
+
+## ISSUE 3: Fix Activity Screen - Add 10+ Activities Per Goal x Age Combo + LLM Integration
+
+### Current Problem
+- Activity screen shows only 1 activity
+- Not enough options for parents to choose from
+- Activity selection UI is poor (not interactive)
+
+### Fix Required
+
+**Solution: Two-Tier Approach**
+
+#### Option A: Use Claude API (Recommended for MVP)
+
+1. **Add Claude API call to generate activities dynamically**
+
+```python
+# In app.py, add this route:
+
+@app.route('/api/get-activities', methods=['POST'])
+@login_required
+def get_activities():
+    """Fetch or generate 10 activities for age x goal combo using Claude API"""
+    baby_id = request.json.get('baby_id')
+    baby = get_baby_by_id(baby_id)
+    
+    age_months = baby.age_months
+    goals = json.loads(baby.development_goals)  # ["Cognitive", "Physical"]
+    
+    # Generate prompt for Claude
+    prompt = f"""
+    Generate exactly 10 unique, engaging bonding activities for a parent and a baby that is:
+    - Age: {age_months} months old
+    - Developmental focus: {', '.join(goals)}
+    
+    Requirements:
+    1. Each activity should be 10-15 minutes long
+    2. Should be doable at home with common items
+    3. Age-appropriate and developmentally supportive
+    4. Include a brief AI coach tip
+    5. Format as JSON array with this structure:
+    
+    [
+      {{
+        "title": "Activity Name",
+        "description": "Short description of what to do",
+        "age_range": "X-Y months",
+        "development_type": "{goals[0]}",
+        "duration": 10,
+        "ai_tip": "Friendly coaching tip",
+        "how_to_adapt": "Adaptation for this age"
+      }},
+      ...
+    ]
+    
+    Generate 10 diverse activities. Be creative and practical. Use warm, friendly language.
+    Return ONLY valid JSON, no markdown, no explanation.
+    """
+    
+    # Call Claude API
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2000,
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
+    )
+    
+    activities_json = response.content[0].text
+    activities = json.loads(activities_json)
+    
+    return jsonify(activities)
+```
+
+2. **Update `templates/home.html` to show activity picker:**
+
+```html
+<div class="home-container">
+  <h1>Welcome back! 👋</h1>
+  <p>Today with {{ baby.baby_name }} ({{ baby.age_months }} months old)</p>
+  
+  <!-- Activity Picker -->
+  <div id="activity-picker" class="activity-picker">
+    <h2>Choose an activity to grow together 💕</h2>
+    <div id="activities-list" class="activities-grid">
+      <!-- Activities loaded via JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+  const babyId = "{{ baby.id }}";
+  
+  try {
+    const response = await fetch('/api/get-activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baby_id: babyId })
+    });
+    
+    const activities = await response.json();
+    const container = document.getElementById('activities-list');
+    
+    activities.forEach((activity, index) => {
+      const card = document.createElement('div');
+      card.className = 'activity-option-card';
+      card.innerHTML = `
+        <div class="activity-option">
+          <h3>${activity.title}</h3>
+          <p>${activity.description}</p>
+          <span class="badge">${activity.development_type}</span>
+          <span class="duration">⏱️ ${activity.duration} min</span>
+          <button class="btn-small" onclick="selectActivity(${index}, '${babyId}')">
+            Select Activity ➜
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (error) {
+    console.error('Error loading activities:', error);
+  }
+});
+
+function selectActivity(activityIndex, babyId) {
+  // Redirect to activity timer with selected activity
+  window.location.href = `/activity/${babyId}/${activityIndex}`;
+}
+</script>
+```
+
+3. **CSS for Activity Grid:**
+
+```css
+.activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.activity-option-card {
+  background: linear-gradient(135deg, #D4F1E4, #FDFAF5);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 300ms ease;
+  cursor: pointer;
+}
+
+.activity-option-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.activity-option h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1A365D;
+  margin-bottom: 8px;
+}
+
+.activity-option p {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.badge {
+  display: inline-block;
+  background: #D6E8F7;
+  color: #1A365D;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.duration {
+  display: inline-block;
+  font-size: 12px;
+  color: #8B8B8B;
+}
+
+.btn-small {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-small:hover {
+  background: #45a049;
+}
+```
+
+**Result:**
+- 10 unique activities generated per age x goal combo
+- Interactive card-based picker
+- Parents can see all options and choose
+- Uses Claude to generate contextually-relevant activities
+
+---
+
+#### Option B: Pre-Seeded Activities (Fallback)
+
+If you want to avoid LLM calls for now, expand the activities table with 10+ activities per (age_range, development_type) combo:
+
+```python
+# In database.py, expand seeding:
+
+ACTIVITIES = [
+  # Age 0-3 months, Physical (10 activities)
+  {
+    'title': 'Tummy Time Giggles',
+    'description': 'Place baby on tummy for 5 mins. Make funny sounds and faces.',
+    'age_range_min': 0, 'age_range_max': 3,
+    'development_type': 'Physical',
+    'duration': 10,
+    'ai_tip': 'Do this when baby is alert and fed.'
+  },
+  # ... 9 more for this combo
+  
+  # Age 3-6 months, Physical (10 activities)
+  # ... and so on for all combinations
+]
+```
+
+This requires more upfront work but is more predictable.
+
+**Recommendation: Use Claude API (Option A)** for MVP because:
+- Generates infinite variety
+- Adapts to any age
+- Feels personalized
+- Faster to implement than pre-seeding 100+ activities
+
+---
+
+## IMPLEMENTATION CHECKLIST
+
+- [ ] Remove "Your Name" field from signup
+- [ ] Remove "Avatar" field from signup
+- [ ] Simplify signup to only email + password
+- [ ] Update goals screen with clear multi-select UI (checkboxes with visual feedback)
+- [ ] Add Claude API integration for activity generation
+- [ ] Create `/api/get-activities` endpoint
+- [ ] Build activity picker grid (10 cards per combo)
+- [ ] Test: Signup → Onboarding → Activity selection works end-to-end
+- [ ] Verify responsive design on 375px
+- [ ] Deploy to Replit
+
+---
+
+## TESTING STEPS
+
+1. **Signup:** Email only, no name/avatar fields → should be fast
+2. **Onboarding:** Goals screen shows checkboxes with green highlight on select
+3. **Home:** Click "Choose Activity" → See 10 options generated by Claude
+4. **Selection:** Click any activity → Goes to timer screen
+
+---
+
+## TIME ESTIMATE
+
+- Issue 1 (Simplify signup): 10 min
+- Issue 2 (Fix goals UI): 15 min
+- Issue 3 (Add activities + LLM): 20 min
+- Testing & tweaks: 10 min
+- **Total: ~55 min** (well within your 4-hour window)
+
+---
+
+## NOTES
+
+- You'll need Claude API key in Replit (`ANTHROPIC_API_KEY` environment variable)
+- Test locally first, then deploy
+- If Claude API times out, have fallback to pre-seeded activities
+- Goals selection should store as JSON: `["Cognitive", "Physical"]`
+
+**Ready to iterate? Paste this into Replit AI now!** 🚀

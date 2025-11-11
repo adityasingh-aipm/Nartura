@@ -1,0 +1,513 @@
+# NURTURA BABY PROFILE ONBOARDING - Streamlined (Age Groups Only)
+
+You are building a **single-screen Baby Profile creation** for Nurtura that gets users to value ASAP. This replaces complex multi-step onboarding with a fast, emotionally engaging baby setup flow.
+
+---
+
+## 🎯 STRATEGY
+
+**Remove:**
+- ❌ Parent name onboarding
+- ❌ Date of birth picker
+- ❌ Multi-screen flow
+
+**Keep:**
+- ✅ Baby name input
+- ✅ Age group selector (predefined groups)
+- ✅ Emotional hooks (copy + visuals)
+- ✅ Direct redirect to home/areas after completion
+
+**Goal:** User signs up → Names baby → Picks age group → Immediately see personalized content (areas screen).
+
+---
+
+## 📋 AGE GROUPS (From Screenshot)
+
+```
+Newborn (0-3 months)
+Infant (4-11 months)
+Toddler (1-3 years)
+Preschooler (3-5 years)
+Early Learner (5-8 years)
+[Optional: Older kids 8+ years]
+```
+
+---
+
+## 🎨 WIREFRAME COPY
+
+```
+Hi there, wonderful parent 💕
+
+Let's get to know your little one 🌸
+
+👶 Baby's name
+[ enter name here ] ← Rounded input, large font
+
+🎂 Baby's age group
+[ ▼ Select age group ] ← Dropdown (rounded corners)
+  |— Newborn (0-3 months)
+  |— Infant (4-11 months)
+  |— Toddler (1-3 years)
+  |— Preschooler (3-5 years)
+  |— Early Learner (5-8 years)
+
+[ 🌿 Start the Journey ] ← Primary CTA
+
+✨ "Every small moment you nurture today
+   shapes a beautiful tomorrow."
+
+💬 "Loved by thousands of parents
+   discovering joy with Nurtura."
+```
+
+---
+
+## ⚙️ TECH SETUP
+
+### Environment Variables
+```
+VITE_API_ENDPOINT=http://localhost:5000/api
+```
+
+### Backend Endpoint (Pseudo-code)
+```javascript
+// POST /api/create-baby
+app.post('/api/create-baby', async (req, res) => {
+  const { phone, babyName, ageGroup } = req.body;
+  
+  // Save baby profile to database
+  // Link to parent phone
+  // Return baby_id
+  
+  res.json({ 
+    success: true, 
+    baby_id: newBaby.id,
+    message: 'Baby profile created!' 
+  });
+});
+```
+
+### Install Dependencies
+```bash
+npm install axios framer-motion react-router-dom
+```
+
+---
+
+## 📱 COMPONENT: Baby Profile Onboarding
+
+### Component: `/src/components/BabyOnboarding.jsx`
+
+```jsx
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import axios from 'axios';
+
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:5000/api';
+
+const AGE_GROUPS = [
+  '0-3 months',
+  '4-11 months',
+  '1-3 years',
+  '3-5 years',
+  '5-8 years',
+];
+
+export default function BabyOnboarding() {
+  const navigate = useNavigate();
+  const [babyName, setBabyName] = useState('');
+  const [ageGroup, setAgeGroup] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleStartJourney = async () => {
+    if (!babyName.trim()) {
+      setError("Please enter your baby's name");
+      return;
+    }
+    if (!ageGroup) {
+      setError('Please select your baby\'s age group');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const phone = localStorage.getItem('nurtura_phone');
+      
+      const response = await axios.post(`${API_ENDPOINT}/create-baby`, {
+        phone,
+        babyName: babyName.trim(),
+        ageGroup,
+      });
+
+      if (response.data.success) {
+        localStorage.setItem('nurtura_baby_id', response.data.baby_id);
+        localStorage.setItem('nurtura_baby_name', babyName.trim());
+        localStorage.setItem('nurtura_age_group', ageGroup);
+        
+        // Redirect to home/areas screen
+        setTimeout(() => navigate('/home'), 1000);
+      } else {
+        setError('Failed to create baby profile. Please try again.');
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong');
+      setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && babyName && ageGroup) {
+      handleStartJourney();
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+      className="min-h-screen bg-gradient-to-b from-white via-pink-50 to-blue-50 flex flex-col p-6 pb-8"
+    >
+      {/* Back Button */}
+      <button
+        onClick={() => navigate('/signup')}
+        className="text-2xl text-gray-600 hover:text-gray-800 transition mb-6 self-start"
+      >
+        ←
+      </button>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+        {/* Greeting */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+            Hi there, wonderful parent 💕
+          </h1>
+          <p className="text-lg text-gray-700">
+            Let's <span className="text-pink-500 font-semibold">get to know</span> your little one 🌸
+          </p>
+        </motion.div>
+
+        {/* Form Section */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="space-y-6"
+        >
+          {/* Baby Name Input */}
+          <div>
+            <label className="flex items-center text-lg font-semibold text-gray-900 mb-3">
+              <span className="text-2xl mr-2">👶</span>
+              Baby's name
+            </label>
+            <input
+              type="text"
+              placeholder="Enter name here"
+              value={babyName}
+              onChange={(e) => {
+                setBabyName(e.target.value);
+                setError('');
+              }}
+              onKeyPress={handleKeyPress}
+              disabled={loading}
+              maxLength="30"
+              className="w-full px-4 py-4 text-lg font-medium border-2 border-pink-300 rounded-3xl focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all placeholder-gray-400 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Age Group Dropdown */}
+          <div>
+            <label className="flex items-center text-lg font-semibold text-gray-900 mb-3">
+              <span className="text-2xl mr-2">🎂</span>
+              Baby's age group
+            </label>
+            <select
+              value={ageGroup}
+              onChange={(e) => {
+                setAgeGroup(e.target.value);
+                setError('');
+              }}
+              disabled={loading}
+              className="w-full px-4 py-4 text-base font-medium border-2 border-pink-300 rounded-3xl focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all bg-white disabled:bg-gray-100 appearance-none cursor-pointer"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23EC4899' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 16px center',
+                paddingRight: '40px',
+              }}
+            >
+              <option value="">Select age group</option>
+              {AGE_GROUPS.map((group) => (
+                <option key={group} value={group}>
+                  {group}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-red-500 text-sm font-medium text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+
+          {/* CTA Button */}
+          <motion.button
+            whileHover={{ scale: loading ? 1 : 1.02 }}
+            whileTap={{ scale: loading ? 1 : 0.98 }}
+            onClick={handleStartJourney}
+            disabled={loading}
+            className={`w-full bg-gradient-to-r from-green-400 to-emerald-500 text-white font-bold text-lg h-14 rounded-3xl shadow-lg hover:shadow-xl transition-all ${
+              loading ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg
+                  className="animate-spin h-5 w-5 mr-2"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="white"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="white"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Creating profile…
+              </span>
+            ) : (
+              '🌿 Start the Journey'
+            )}
+          </motion.button>
+        </motion.div>
+
+        {/* Emotional Hooks */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="space-y-6 mt-10 pt-6 border-t border-pink-100"
+        >
+          {/* Quote 1 */}
+          <div className="text-center">
+            <p className="text-xl text-gray-800">
+              ✨ "Every <span className="text-pink-500 font-semibold">small moment</span> you nurture today
+            </p>
+            <p className="text-xl text-gray-800">
+              shapes a <span className="text-pink-500 font-semibold">beautiful tomorrow.</span>"
+            </p>
+          </div>
+
+          {/* Quote 2 */}
+          <div className="text-center">
+            <p className="text-lg text-gray-700">
+              💬 "Loved by <span className="text-pink-500 font-semibold">thousands of parents</span>
+            </p>
+            <p className="text-lg text-gray-700">
+              discovering <span className="text-pink-500 font-semibold">joy</span> with Nurtura."
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+```
+
+---
+
+## 🔀 ROUTING: App.jsx (Updated)
+
+Replace your current App.jsx routing with this:
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import WelcomeScreen from './components/WelcomeScreen';
+import SignupScreen from './components/SignupScreen';
+import VerifyOTPScreen from './components/VerifyOTPScreen';
+import BabyOnboarding from './components/BabyOnboarding'; // NEW
+import Dashboard from './components/Dashboard';
+
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [baby, setBaby] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const phone = localStorage.getItem('nurtura_phone');
+    const babyId = localStorage.getItem('nurtura_baby_id');
+    
+    if (phone && babyId) {
+      setBaby(true);
+    }
+    if (phone) {
+      setSession(true);
+    }
+    setLoading(false);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🌿</div>
+          <p className="text-gray-600 text-lg font-medium">Loading Nurtura...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Router>
+      <Routes>
+        {!session ? (
+          // Pre-login flow
+          <>
+            <Route path="/" element={<WelcomeScreen />} />
+            <Route path="/signup" element={<SignupScreen />} />
+            <Route path="/verify-otp" element={<VerifyOTPScreen />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
+        ) : !baby ? (
+          // Post-login, pre-baby flow
+          <>
+            <Route path="/baby-onboarding" element={<BabyOnboarding />} />
+            <Route path="*" element={<Navigate to="/baby-onboarding" replace />} />
+          </>
+        ) : (
+          // Post-baby flow (access to app)
+          <>
+            <Route path="/home" element={<Dashboard />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
+          </>
+        )}
+      </Routes>
+    </Router>
+  );
+}
+```
+
+---
+
+## 🔗 UPDATE: VerifyOTPScreen Redirect
+
+Update your `VerifyOTPScreen.jsx` to redirect to baby onboarding instead of home:
+
+**Find this line:**
+```jsx
+setTimeout(() => navigate('/home'), 1000);
+```
+
+**Replace with:**
+```jsx
+setTimeout(() => navigate('/baby-onboarding'), 1000);
+```
+
+---
+
+## ✅ USER FLOW
+
+```
+1. Welcome Screen (❤️ Let's Begin)
+   ↓
+2. Sign-Up Screen (Enter phone number)
+   ↓
+3. OTP Verify Screen (Enter 6-digit code)
+   ↓
+4. Baby Profile Onboarding (NEW - Name + Age Group only)
+   ↓
+5. Home/Areas Screen (Personalized content immediately)
+```
+
+---
+
+## 🎨 DESIGN SPECS
+
+| Element | Spec |
+|---------|------|
+| Background | Gradient: white → pink-50 → blue-50 |
+| Baby Name Input | Rounded-3xl, large font, 30 chars max |
+| Age Dropdown | Rounded-3xl, custom arrow (pink), 5 options |
+| Button Color | Green gradient (from-green-400 to-emerald-500) |
+| Button Height | h-14 (56px) |
+| Emotional Hooks | 2 quotes with pink emphasis text |
+| Max Width | max-w-md (448px) |
+
+---
+
+## 🎯 AGE GROUPS
+
+```
+0-3 months
+4-11 months
+1-3 years
+3-5 years
+5-8 years
+```
+
+---
+
+## 💡 WHY THIS WORKS
+
+✅ **Fast to value:** Name + age group only (30 seconds)  
+✅ **Emotional engagement:** Warmth on every page  
+✅ **Immediate personalization:** Straight to areas/activities  
+✅ **Low friction:** No date of birth picker complexity  
+✅ **Mobile-first:** Streamlined for thumb navigation  
+✅ **Converts better:** Users see value before asking for more data  
+
+---
+
+## ✅ IMPLEMENTATION CHECKLIST
+
+- [ ] Create `/src/components/BabyOnboarding.jsx`
+- [ ] Update `App.jsx` routing (add baby state)
+- [ ] Update `VerifyOTPScreen.jsx` redirect to `/baby-onboarding`
+- [ ] Create `/api/create-baby` backend endpoint
+- [ ] Test name input validation
+- [ ] Test age group dropdown
+- [ ] Test redirect to `/home` after baby creation
+- [ ] Verify localStorage saves baby_id, name, age_group
+- [ ] Test on mobile viewport (375-430px)
+- [ ] Verify emotional hooks display correctly
+
+---
+
+## 🚀 READY TO BUILD?
+
+This prompt generates:
+- ✅ Single-screen baby profile creation
+- ✅ Name input + age group dropdown
+- ✅ Emotional hooks (2 quotes)
+- ✅ Direct redirect to home/areas
+- ✅ Fast onboarding (removes friction)
+- ✅ Nurtura's warm design language
+
+**Paste into Replit now!** 🌿💕
